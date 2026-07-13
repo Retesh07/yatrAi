@@ -24,6 +24,8 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
   res.json({ message: 'YatrAI API is running 🚀' });
 });
+// Routes
+app.use('/api/v1/auth', require('./routes/auth'));
 
 const PORT = process.env.PORT || 5000;
 
