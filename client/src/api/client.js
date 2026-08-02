@@ -1,15 +1,13 @@
-const BASE_URL = '/api/v1';
+import { API_BASE_URL } from './config';
 
 /**
  * Generic API request helper.
- * Uses relative URLs so Vite's proxy handles CORS in dev,
- * and the same origin works in production.
  */
 export async function apiRequest(path, { method = 'GET', body, token } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
     credentials: 'include', // send httpOnly refresh cookie on every request

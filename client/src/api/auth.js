@@ -1,4 +1,6 @@
-const BASE = '/api/v1/auth';
+import { API_BASE_URL } from './config';
+
+const BASE = `${API_BASE_URL}/auth`;
 
 /**
  * POST /api/v1/auth/register
