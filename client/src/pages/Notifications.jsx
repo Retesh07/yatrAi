@@ -8,7 +8,7 @@ import { initSocket, subscribe } from '../services/socket';
 
 const initialNotifications = [
   { id: 1, type: 'trip', title: 'Trip to Jaipur completed!', desc: 'Your trip itinerary has been saved successfully. View the details anytime from your dashboard.', time: '2 min ago', read: false, icon: '✈️' },
-  { id: 2, type: 'social', title: 'Priya liked your Goa trip', desc: 'Your community trip post received a new like from Priya S.', time: '15 min ago', read: false, icon: '❤️' },
+  { id: 2, type: 'social', title: 'Ananya liked your Goa trip', desc: 'Your community trip post received a new like from Ananya S.', time: '15 min ago', read: false, icon: '❤️' },
   { id: 3, type: 'system', title: 'New feature: Packing Lists!', desc: 'AI-powered packing lists are now available for all your trips. Check it out!', time: '1 hour ago', read: false, icon: '🎒' },
   { id: 4, type: 'trip', title: 'Weather update for Manali', desc: 'Snowfall expected during your travel dates. We\'ve updated your packing list.', time: '3 hours ago', read: true, icon: '🌨️' },
   { id: 5, type: 'social', title: 'Arjun copied your itinerary', desc: 'Your Kerala backwaters trip was copied by Arjun K. from the Explore page.', time: '5 hours ago', read: true, icon: '📋' },

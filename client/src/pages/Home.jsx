@@ -54,22 +54,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [toast, setToast] = useState(null);
 
-  /* Live toast notification simulation */
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const msg = liveMessages[Math.floor(Math.random() * liveMessages.length)];
-      setToast(msg);
-    }, 6000);
-
-    const firstTimeout = setTimeout(() => {
-      setToast(liveMessages[0]);
-    }, 2000);
-
-    return () => {
-      clearInterval(interval);
-      clearTimeout(firstTimeout);
-    };
-  }, []);
+  /* Live toast notification simulation - removed */
 
   return (
     <div className="min-h-screen bg-surface dark:bg-[#0a0a0a] transition-colors duration-300">

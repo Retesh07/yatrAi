@@ -14,7 +14,7 @@ const getFutureDate = (offsetDays) => {
 
 /* ── Mock community trips ─────────────────────────────────── */
 const allTrips = [
-  { id: 1, destination: 'Jaipur Heritage Tour', user: 'Priya S.', avatar: 'P', days: 5, budget: '₹18K', style: 'Cultural', emoji: '🏰', color: 'from-pink-500 to-rose-600', likes: 234 },
+  { id: 1, destination: 'Jaipur Heritage Tour', user: 'Ananya S.', avatar: 'A', days: 5, budget: '₹18K', style: 'Cultural', emoji: '🏰', color: 'from-pink-500 to-rose-600', likes: 234 },
   { id: 2, destination: 'Goa Beach Getaway', user: 'Arjun K.', avatar: 'A', days: 4, budget: '₹12K', style: 'Relaxation', emoji: '🏖️', color: 'from-cyan-500 to-blue-600', likes: 189 },
   { id: 3, destination: 'Manali Adventure Trip', user: 'Rahul M.', avatar: 'R', days: 6, budget: '₹25K', style: 'Adventure', emoji: '🏔️', color: 'from-emerald-500 to-teal-600', likes: 312 },
   { id: 4, destination: 'Kerala Backwaters', user: 'Sneha D.', avatar: 'S', days: 7, budget: '₹22K', style: 'Nature', emoji: '🌴', color: 'from-green-500 to-emerald-600', likes: 156 },

@@ -16,6 +16,35 @@ YatrAI is a full-stack, AI-powered travel itinerary planner built specifically f
 
 ---
 
+## 📸 Application Screenshots
+
+<div align="center">
+  <h3>🏠 Landing Page & Hero</h3>
+  <img src="docs/screenshots/home.png" alt="Home Page" width="850" />
+  
+  <br/><br/>
+
+  <h3>🧭 7-Step Trip Planning Wizard</h3>
+  <img src="docs/screenshots/wizard.png" alt="Trip Wizard" width="850" />
+
+  <br/><br/>
+
+  <h3>🤖 AI-Generated Day-by-Day Itinerary</h3>
+  <img src="docs/screenshots/itinerary.png" alt="AI Itinerary Generator" width="850" />
+
+  <br/><br/>
+
+  <h3>🌤️ Smart Date-Aware Weather & Maps</h3>
+  <img src="docs/screenshots/weather.png" alt="Weather & Map Integration" width="850" />
+
+  <br/><br/>
+
+  <h3>👥 Community Explore Feed</h3>
+  <img src="docs/screenshots/explore.png" alt="Explore Trips Feed" width="850" />
+</div>
+
+---
+
 ## 🏗️ Technical Architecture & Pipeline Overview
 
 ```mermaid
