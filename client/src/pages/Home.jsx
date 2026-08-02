@@ -106,19 +106,7 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Stats */}
-          <div className="animate-fade-in animation-delay-500 mt-16 flex flex-wrap items-center justify-center gap-8 sm:gap-16">
-            {[
-              { num: '10K+', label: 'Trips Planned' },
-              { num: '200+', label: 'Indian Cities' },
-              { num: '4.9', label: 'User Rating' },
-            ].map((s, i) => (
-              <div key={i} className="text-center">
-                <p className="text-3xl font-bold text-on-surface dark:text-white">{s.num}</p>
-                <p className="text-sm text-secondary dark:text-gray-500 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
+
         </div>
       </section>
 
