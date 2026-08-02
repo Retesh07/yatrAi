@@ -2,7 +2,17 @@
 
 > **Your Next Indian Adventure, Planned by AI.**
 
+[![Live Web App](https://img.shields.io/badge/🌐_Live_Demo-yatr--ai--brown.vercel.app-ff9900?style=for-the-badge&logo=vercel)](https://yatr-ai-brown.vercel.app)
+[![API Status](https://img.shields.io/badge/⚡_API_Server-yatrai--857i.onrender.com-46E3B7?style=for-the-badge&logo=render)](https://yatrai-857i.onrender.com)
+
 YatrAI is a full-stack, AI-powered travel itinerary planner built specifically for Indian travelers. Users complete a 7-step wizard (specifying route, travel dates, group size, budget in ₹ INR, travel style, food preferences, and transport modes) to instantly receive a complete, day-by-day customized itinerary complete with hotel recommendations, estimated cost breakdowns, date-aware live weather forecasts, and community trip sharing.
+
+---
+
+## 🔗 Live Production Links
+
+* 🌐 **Live Web Application (Vercel)**: [https://yatr-ai-brown.vercel.app](https://yatr-ai-brown.vercel.app)
+* ⚡ **Live Express API Server (Render)**: [https://yatrai-857i.onrender.com](https://yatrai-857i.onrender.com)
 
 ---
 
@@ -79,6 +89,7 @@ graph TD
 * **`src/index.css`**: Global design system, dark mode styles, custom scrollbars, and animations.
 
 #### 🔌 Client API & Services (`/client/src/api` & `/client/src/services`)
+* **`api/config.js`**: Central API base URL configuration. Automatically switches between local dev proxy and production environment variable (`VITE_API_URL`).
 * **`api/client.js`**: Central API wrapper for trip operations (`apiCreateTrip`, `apiGenerateTrip`, `apiGetTrip`, `apiGetMyTrips`, `apiGetPublicTrips`, `apiUpdateTrip`, `apiDeleteTrip`).
 * **`api/auth.js`**: Authentication API calls (`apiLogin`, `apiRegister`, `apiLogout`, `apiRefreshToken`).
 * **`api/notifications.js`**: Notification API calls (`apiGetNotifications`, `apiMarkNotificationRead`, `apiMarkAllNotificationsRead`).
@@ -163,7 +174,7 @@ JWT_SECRET=your_jwt_secret_key
 JWT_REFRESH_SECRET=your_jwt_refresh_secret
 JWT_EXPIRE=15m
 JWT_REFRESH_EXPIRE=7d
-CLIENT_URL=http://localhost:3000
+CLIENT_URL=https://yatr-ai-brown.vercel.app
 NODE_ENV=development
 GROQ_API_KEY=your_groq_api_key
 
@@ -190,16 +201,16 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 🧪 Tech Stack Summary
 
-| Layer | Technology |
-|---|---|
-| **Frontend Framework** | React 18, Vite |
-| **Styling** | Vanilla CSS tokens & Tailwind CSS |
-| **Routing** | React Router v6 |
-| **Backend Runtime** | Node.js, Express.js |
-| **Database** | MongoDB Atlas, Mongoose ORM |
-| **Authentication** | JWT Access Tokens + httpOnly Refresh Token Cookies |
-| **AI Model** | Groq API (`llama-3.3-70b-versatile`) |
-| **Real-time WebSockets** | Socket.io |
-| **Background Queues** | BullMQ + Redis |
-| **Weather API** | Open-Meteo Forecast API |
-| **Maps** | OpenStreetMap & Leaflet |
+| Layer | Technology | Live Production Link |
+|---|---|---|
+| **Frontend App** | React 18, Vite | [https://yatr-ai-brown.vercel.app](https://yatr-ai-brown.vercel.app) |
+| **Backend API** | Node.js, Express.js | [https://yatrai-857i.onrender.com](https://yatrai-857i.onrender.com) |
+| **Styling** | Vanilla CSS tokens & Tailwind CSS | - |
+| **Routing** | React Router v6 | - |
+| **Database** | MongoDB Atlas, Mongoose ORM | - |
+| **Authentication** | JWT Access Tokens + httpOnly Refresh Token Cookies | - |
+| **AI Model** | Groq API (`llama-3.3-70b-versatile`) | - |
+| **Real-time WebSockets** | Socket.io | - |
+| **Background Queues** | BullMQ + Redis | - |
+| **Weather API** | Open-Meteo Forecast API | - |
+| **Maps** | OpenStreetMap & Leaflet | - |
