@@ -17,11 +17,28 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
+// Dynamic CORS helper: allows CLIENT_URL, local dev, and all Vercel preview domains (*.vercel.app)
+const clientUrlClean = (process.env.CLIENT_URL || '').replace(/\/$/, '');
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true; // allow server-to-server, Postman, curl
+  if (clientUrlClean && origin === clientUrlClean) return true;
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
+  if (/\.vercel\.app$/.test(origin)) return true; // allow any Vercel domain automatically
+  return false;
+};
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
-  credentials: true
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS error: Origin ${origin} not allowed`));
+    }
+  },
+  credentials: true,
 }));
+
 app.use(express.json());
 app.use(cookieParser());
 

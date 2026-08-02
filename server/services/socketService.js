@@ -3,10 +3,26 @@ const jwt = require('jsonwebtoken');
 
 let io;
 
+const clientUrlClean = (process.env.CLIENT_URL || '').replace(/\/$/, '');
+
+const isAllowedOrigin = (origin) => {
+  if (!origin) return true;
+  if (clientUrlClean && origin === clientUrlClean) return true;
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) return true;
+  if (/\.vercel\.app$/.test(origin)) return true;
+  return false;
+};
+
 function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: (origin, callback) => {
+        if (isAllowedOrigin(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`Socket CORS error: Origin ${origin} not allowed`));
+        }
+      },
       methods: ['GET', 'POST'],
       credentials: true,
     },
