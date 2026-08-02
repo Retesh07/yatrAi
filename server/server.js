@@ -1,8 +1,12 @@
 const express = require('express');
+const http = require('http');
 const dotenv = require('dotenv');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const connectDB = require('./config/db');
+const { initSocket } = require('./services/socketService');
+const { initQueue } = require('./services/queueService');
+const { startTripReminderScheduler } = require('./services/tripNotificationService');
 
 // Load env variables
 dotenv.config();
@@ -11,6 +15,7 @@ dotenv.config();
 connectDB();
 
 const app = express();
+const server = http.createServer(app);
 
 // Middleware
 app.use(cors({
@@ -24,8 +29,11 @@ app.use(cookieParser());
 app.get('/', (req, res) => {
   res.json({ message: 'YatrAI API is running 🚀' });
 });
+
 // Routes
 app.use('/api/v1/auth', require('./routes/auth'));
+app.use('/api/v1/trips', require('./routes/trips'));
+app.use('/api/v1/notifications', require('./routes/notifications'));
 const { protect } = require('./middleware/authMiddleware');
 
 app.get('/api/v1/protected', protect, (req, res) => {
@@ -35,9 +43,13 @@ app.get('/api/v1/protected', protect, (req, res) => {
   });
 });
 
+// Initialize real-time and queue services
+initSocket(server);
+initQueue();
+startTripReminderScheduler();
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
