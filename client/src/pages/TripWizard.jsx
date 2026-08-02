@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
 /* ── Wizard option data ──────────────────────────────────── */
+const quickFromCities = ['Mumbai', 'Delhi', 'Bangalore', 'Kolkata', 'Chennai', 'Hyderabad', 'Pune', 'Ahmedabad'];
 const quickDestinations = ['Jaipur', 'Goa', 'Manali', 'Kerala', 'Varanasi', 'Udaipur', 'Rishikesh', 'Darjeeling', 'Leh-Ladakh', 'Hampi'];
 
 const peopleOptions = [
@@ -40,10 +41,24 @@ const formatDateIndian = (dateStr) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const todayISO = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const date = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${date}`;
+};
+
+const clampDate = (value, min) => {
+  if (!value) return value;
+  return value < min ? min : value;
+};
+
 export default function TripWizard() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [wizardData, setWizardData] = useState({
+    fromLocation: '',
     destination: '',
     startDate: '',
     endDate: '',
@@ -52,6 +67,7 @@ export default function TripWizard() {
     travelStyle: [],
     food: '',
     transport: [],
+    isPublic: false,
   });
 
   const update = (key, value) => setWizardData((prev) => ({ ...prev, [key]: value }));
@@ -71,10 +87,22 @@ export default function TripWizard() {
     return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1);
   };
 
+  const isFromToValid = () => {
+    if (!wizardData.fromLocation.trim() || !wizardData.destination.trim()) return false;
+    return wizardData.fromLocation.trim().toLowerCase() !== wizardData.destination.trim().toLowerCase();
+  };
+
+  const isDateRangeValid = () => {
+    if (!wizardData.startDate || !wizardData.endDate) return false;
+    const today = todayISO();
+    if (wizardData.startDate < today || wizardData.endDate < today) return false;
+    return getDaysCount() > 0;
+  };
+
   const canProceed = () => {
     switch (currentStep) {
-      case 1: return wizardData.destination.trim().length > 0;
-      case 2: return wizardData.startDate && wizardData.endDate && getDaysCount() > 0;
+      case 1: return isFromToValid();
+      case 2: return isDateRangeValid();
       case 3: return wizardData.people.length > 0;
       case 4: return wizardData.budget.length > 0;
       case 5: return wizardData.travelStyle.length > 0;
@@ -113,39 +141,80 @@ export default function TripWizard() {
 
         {/* Step Content */}
         <div className="animate-fade-in" key={currentStep}>
-          {/* ── Step 1: Destination ──────────────────────── */}
+          {/* ── Step 1: From & Destination ──────────────────────── */}
           {currentStep === 1 && (
             <div>
               <h2 className="text-2xl font-bold text-on-surface dark:text-white">
-                Where do you want to go?
+                Where are you traveling from & to?
               </h2>
               <p className="mt-2 text-secondary dark:text-gray-400">
-                Type a destination or pick from popular Indian cities
+                Enter your starting city and destination
               </p>
 
-              <input
-                id="destination-input"
-                type="text"
-                value={wizardData.destination}
-                onChange={(e) => update('destination', e.target.value)}
-                placeholder="e.g. Jaipur, Goa, Manali..."
-                className="mt-6 w-full rounded-xl border border-outline-variant/40 dark:border-white/[0.08] bg-surface-container-lowest dark:bg-[#141414] px-5 py-4 text-lg text-on-surface dark:text-white placeholder:text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all"
-              />
+              <div className="mt-6 space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-on-surface dark:text-gray-300 mb-1.5">
+                    🚀 Starting Location (From)
+                  </label>
+                  <input
+                    id="from-input"
+                    type="text"
+                    value={wizardData.fromLocation}
+                    onChange={(e) => update('fromLocation', e.target.value)}
+                    placeholder="e.g. Mumbai, Delhi, Bangalore, Kolkata..."
+                    className="w-full rounded-xl border border-outline-variant/40 dark:border-white/[0.08] bg-surface-container-lowest dark:bg-[#141414] px-5 py-3.5 text-base text-on-surface dark:text-white placeholder:text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {quickFromCities.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => update('fromLocation', c)}
+                        className={`rounded-lg px-3 py-1 text-xs font-medium border transition-all ${
+                          wizardData.fromLocation === c
+                            ? 'bg-primary-container text-on-primary-container border-primary-container font-semibold'
+                            : 'border-outline-variant/30 text-secondary dark:text-gray-400 hover:bg-surface-container dark:hover:bg-white/5'
+                        }`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-              <div className="mt-6 flex flex-wrap gap-2">
-                {quickDestinations.map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => update('destination', d)}
-                    className={`rounded-full px-4 py-2 text-sm font-medium border transition-all duration-200 ${
-                      wizardData.destination === d
-                        ? 'bg-primary-container text-on-primary-container border-primary-container'
-                        : 'border-outline-variant/40 dark:border-white/[0.08] text-on-surface dark:text-gray-300 hover:bg-surface-container dark:hover:bg-white/5'
-                    }`}
-                  >
-                    {d}
-                  </button>
-                ))}
+                <div>
+                  <label className="block text-sm font-medium text-on-surface dark:text-gray-300 mb-1.5">
+                    📍 Destination City (To)
+                  </label>
+                  <input
+                    id="destination-input"
+                    type="text"
+                    value={wizardData.destination}
+                    onChange={(e) => update('destination', e.target.value)}
+                    placeholder="e.g. Jaipur, Goa, Manali, Kerala..."
+                    className="w-full rounded-xl border border-outline-variant/40 dark:border-white/[0.08] bg-surface-container-lowest dark:bg-[#141414] px-5 py-3.5 text-base text-on-surface dark:text-white placeholder:text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all"
+                  />
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {quickDestinations.map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => update('destination', d)}
+                        className={`rounded-lg px-3 py-1 text-xs font-medium border transition-all ${
+                          wizardData.destination === d
+                            ? 'bg-primary-container text-on-primary-container border-primary-container font-semibold'
+                            : 'border-outline-variant/30 text-secondary dark:text-gray-400 hover:bg-surface-container dark:hover:bg-white/5'
+                        }`}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </div>
+
+                  {wizardData.fromLocation.trim() && wizardData.destination.trim() && !isFromToValid() && (
+                    <p className="mt-3 text-sm text-red-500">
+                      Starting location and destination must be different.
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -169,7 +238,8 @@ export default function TripWizard() {
                     id="start-date-input"
                     type="date"
                     value={wizardData.startDate}
-                    onChange={(e) => update('startDate', e.target.value)}
+                    onChange={(e) => update('startDate', clampDate(e.target.value, todayISO()))}
+                    min={todayISO()}
                     className="w-full rounded-xl border border-outline-variant/40 dark:border-white/[0.08] bg-surface-container-lowest dark:bg-[#141414] px-4 py-3 text-sm text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all"
                   />
                 </div>
@@ -181,20 +251,28 @@ export default function TripWizard() {
                     id="end-date-input"
                     type="date"
                     value={wizardData.endDate}
-                    onChange={(e) => update('endDate', e.target.value)}
-                    min={wizardData.startDate}
+                    onChange={(e) => update('endDate', clampDate(e.target.value, wizardData.startDate || todayISO()))}
+                    min={wizardData.startDate || todayISO()}
                     className="w-full rounded-xl border border-outline-variant/40 dark:border-white/[0.08] bg-surface-container-lowest dark:bg-[#141414] px-4 py-3 text-sm text-on-surface dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all"
                   />
                 </div>
               </div>
 
-              {getDaysCount() > 0 && (
-                <div className="mt-4 flex items-center gap-2 rounded-xl bg-primary-container/10 px-4 py-3">
-                  <span className="text-sm font-medium text-primary dark:text-primary-container">
-                    {getDaysCount()} day{getDaysCount() > 1 ? 's' : ''} trip · {formatDateIndian(wizardData.startDate)} – {formatDateIndian(wizardData.endDate)}
-                  </span>
-                </div>
-              )}
+              <div className="mt-4 space-y-2">
+                {getDaysCount() > 0 && (
+                  <div className="flex items-center gap-2 rounded-xl bg-primary-container/10 px-4 py-3">
+                    <span className="text-sm font-medium text-primary dark:text-primary-container">
+                      {getDaysCount()} day{getDaysCount() > 1 ? 's' : ''} trip · {formatDateIndian(wizardData.startDate)} – {formatDateIndian(wizardData.endDate)}
+                    </span>
+                  </div>
+                )}
+
+                {!isDateRangeValid() && wizardData.startDate && wizardData.endDate && (
+                  <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+                    Please choose dates from today onward, and make sure your end date comes after the start date.
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -381,6 +459,31 @@ export default function TripWizard() {
                 ))}
               </div>
 
+              <div className="mt-6 rounded-2xl border border-outline-variant/20 bg-surface-container p-4 flex items-center justify-between gap-4 dark:border-white/10 dark:bg-[#1a1a1a]">
+                <div>
+                  <p className="text-sm font-semibold text-on-surface dark:text-[#f5f5f5]">Share this trip publicly</p>
+                  <p className="mt-1 text-xs text-secondary dark:text-[#b8b8b8]">If enabled, other travelers will receive a notification and can discover your itinerary.</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className={`text-sm font-semibold ${wizardData.isPublic ? 'text-green-600 dark:text-green-400' : 'text-on-surface dark:text-[#f5f5f5]'}`}>
+                    {wizardData.isPublic ? 'Publicly shared' : 'Private'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={wizardData.isPublic}
+                    aria-label="Share this trip publicly"
+                    onClick={() => update('isPublic', !wizardData.isPublic)}
+                    className={`relative h-7 w-12 rounded-full transition-colors duration-200 ease-in-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-container focus-visible:ring-offset-2 dark:focus-visible:ring-offset-[#1a1a1a] ${
+                      wizardData.isPublic ? 'bg-green-500' : 'bg-outline-variant/50 dark:bg-[#383838]'
+                    }`}
+                  >
+                    <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
+                      wizardData.isPublic ? 'translate-x-5' : 'translate-x-0'
+                    }`} />
+                  </button>
+                </div>
+              </div>
               <button
                 id="generate-trip-btn"
                 onClick={handleGenerate}

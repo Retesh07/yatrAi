@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
+import { useAuth } from '../context/AuthContext';
+import { apiGetTrip } from '../api/client';
+import { apiGetNotifications, apiMarkNotificationRead } from '../api/notifications';
+import { initSocket, subscribe } from '../services/socket';
 
-/* ── Mock notifications ───────────────────────────────────── */
 const initialNotifications = [
   { id: 1, type: 'trip', title: 'Trip to Jaipur completed!', desc: 'Your trip itinerary has been saved successfully. View the details anytime from your dashboard.', time: '2 min ago', read: false, icon: '✈️' },
   { id: 2, type: 'social', title: 'Priya liked your Goa trip', desc: 'Your community trip post received a new like from Priya S.', time: '15 min ago', read: false, icon: '❤️' },
@@ -12,22 +16,124 @@ const initialNotifications = [
   { id: 7, type: 'trip', title: 'Reminder: Goa trip in 3 days', desc: 'Your trip to Goa starts on April 2. Make sure your bags are packed!', time: 'Yesterday', read: true, icon: '📅' },
 ];
 
+function normalizeNotification(notification) {
+  return {
+    id: notification._id || notification.id,
+    type: notification.type || 'system',
+    title: notification.title,
+    desc: notification.message || notification.desc,
+    time: notification.createdAt ? new Date(notification.createdAt).toLocaleString() : notification.time || 'Just now',
+    icon: notification.icon || '🔔',
+    read: Boolean(notification.read),
+    data: notification.data || {},
+  };
+}
+
 export default function Notifications() {
+  const { token, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState(initialNotifications);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAsRead = (id) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+  const publishUnreadCount = (items) => {
+    window.dispatchEvent(new CustomEvent('notifications:updated', {
+      detail: { unreadCount: items.filter((item) => !item.read).length },
+    }));
   };
 
-  const markAllAsRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  const markAsRead = async (notification) => {
+    const { id } = notification;
+    try {
+      await apiMarkNotificationRead(id, token);
+    } catch (err) {
+      console.error('Failed to mark notification read:', err);
+      return;
+    }
+    setNotifications((prev) => {
+      const next = prev.filter((n) => n.id !== id);
+      publishUnreadCount(next);
+      return next;
+    });
+
+    const tripId = notification.data?.tripId;
+    if (!tripId) return;
+
+    try {
+      await apiGetTrip(tripId, token);
+      navigate(`/trip/${tripId}`);
+    } catch (tripErr) {
+      console.error('Unable to open trip from notification:', tripErr);
+      setNotice('That trip is no longer available, so we kept you on notifications instead.');
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await Promise.all(
+        notifications.map((n) => apiMarkNotificationRead(n.id, token))
+      );
+    } catch (err) {
+      console.error('Failed to mark all notifications read:', err);
+    }
+    setNotifications((prev) => {
+      const next = [];
+      publishUnreadCount(next);
+      return next;
+    });
   };
 
   const allRead = unreadCount === 0;
+
+  useEffect(() => {
+    if (!token || !isAuthenticated) return;
+
+    async function fetchNotifications() {
+      try {
+        setLoading(true);
+        setError('');
+        setNotice('');
+        const data = await apiGetNotifications(token);
+        if (data.success) {
+          const normalizedNotifications = data.notifications.map(normalizeNotification);
+          setNotifications(normalizedNotifications);
+          publishUnreadCount(normalizedNotifications);
+        }
+      } catch (err) {
+        console.error('Failed to load notifications:', err);
+        setError('Unable to load notifications at the moment.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    const socket = initSocket(token);
+    const unsubscribe = subscribe('notification', (payload) => {
+      setNotifications((prev) => [
+        {
+          id: payload.id,
+          type: payload.type,
+          title: payload.title,
+          desc: payload.message,
+          time: 'Just now',
+          icon: payload.type === 'social' ? '❤️' : payload.type === 'system' ? '⚙️' : '✈️',
+          read: false,
+          data: payload.data || {},
+        },
+        ...prev,
+      ]);
+    });
+
+    fetchNotifications();
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+      if (socket) socket.off('notification');
+    };
+  }, [token, isAuthenticated]);
 
   return (
     <div className="min-h-screen bg-surface dark:bg-[#0F0F0F] transition-colors duration-300">
@@ -56,12 +162,29 @@ export default function Notifications() {
           )}
         </div>
 
+        {notice && (
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+            {notice}
+          </div>
+        )}
+
         {/* Notifications List */}
         <div className="mt-6 space-y-2 animate-fade-in animation-delay-200">
-          {notifications.map((notification) => (
+          {loading ? (
+          <div className="py-10 text-center text-secondary dark:text-gray-400">
+            <svg className="h-8 w-8 animate-spin mx-auto text-primary-container mb-2" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+              <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
+            </svg>
+            Loading notifications...
+          </div>
+        ) : error ? (
+          <div className="py-10 text-center text-red-500">{error}</div>
+        ) : (
+          notifications.map((notification) => (
             <button
               key={notification.id}
-              onClick={() => markAsRead(notification.id)}
+              onClick={() => markAsRead(notification)}
               className={`w-full text-left rounded-xl border p-4 transition-all duration-200 hover:shadow-md ${
                 notification.read
                   ? 'border-outline-variant/20 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02]'
@@ -95,7 +218,8 @@ export default function Notifications() {
                 </div>
               </div>
             </button>
-          ))}
+          ))
+        )}
         </div>
 
         {/* Empty state */}

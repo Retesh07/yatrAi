@@ -1,14 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { apiGetNotifications } from '../api/notifications';
+import { subscribe } from '../services/socket';
 
 export default function Navbar() {
   const { isDark, toggleTheme } = useTheme();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!isAuthenticated || !token) {
+      setUnreadCount(0);
+      return undefined;
+    }
+
+    const loadUnreadCount = async () => {
+      try {
+        const data = await apiGetNotifications(token);
+        if (data.success) setUnreadCount(data.notifications.filter((notification) => !notification.read).length);
+      } catch (error) {
+        console.error('Failed to load notification count:', error);
+      }
+    };
+
+    const unsubscribe = subscribe('notification', () => setUnreadCount((count) => count + 1));
+    const handleNotificationUpdate = (event) => setUnreadCount(event.detail.unreadCount);
+    window.addEventListener('notifications:updated', handleNotificationUpdate);
+    loadUnreadCount();
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('notifications:updated', handleNotificationUpdate);
+    };
+  }, [isAuthenticated, token]);
 
   const handleLogout = () => {
     logout();
@@ -20,7 +49,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 w-full border-b border-outline-variant/30 dark:border-white/10 bg-surface/80 dark:bg-[#0F0F0F]/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
+        <Link to={isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2 group">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-container text-on-primary-container font-bold text-lg transition-transform group-hover:scale-105">
             Y
           </div>
@@ -59,9 +88,11 @@ export default function Navbar() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 01-3.46 0" />
                 </svg>
-                <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary-container text-[10px] font-bold text-on-primary-container">
-                  3
-                </span>
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary-container px-1 text-[10px] font-bold text-on-primary-container">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </Link>
 
               {/* User avatar dropdown */}

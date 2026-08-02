@@ -1,50 +1,94 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { apiLogin, apiRegister, apiLogout, apiRefreshToken } from '../api/auth';
+import { initSocket, disconnectSocket } from '../services/socket';
 
 const AuthContext = createContext();
 
-/* ── Mock API helpers (replace with real endpoints later) ──── */
-const fakeApiDelay = () => new Promise((res) => setTimeout(res, 800));
-
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null); // JWT kept in memory only
+  const [user, setUser]   = useState(null);
+  const [token, setToken] = useState(null);   // access token — kept in memory only
+  const [authLoading, setAuthLoading] = useState(true); // true while restoring session
 
-  const isAuthenticated = !!user;
+  const isAuthenticated = !!user && !!token;
 
-  const login = useCallback(async (email, password) => {
-    await fakeApiDelay();
-    // Simulate server response — replace with real fetch later
-    const fakeUser = {
-      id: '1',
-      name: email.split('@')[0],
-      email,
-      avatar: null,
+  /* ── Restore session on page load ──────────────────────────
+     The httpOnly refresh cookie is sent automatically by the
+     browser, so we just call /refresh and restore user state.
+  ─────────────────────────────────────────────────────────── */
+  useEffect(() => {
+    const restoreSession = async () => {
+      const savedUser = localStorage.getItem('yatrai_user');
+
+      try {
+        const data = await apiRefreshToken();
+        setToken(data.accessToken);
+        if (savedUser) {
+          setUser(JSON.parse(savedUser));
+        } else {
+          // Default user object if not in localStorage
+          setUser({ name: 'Traveler' });
+        }
+      } catch (err) {
+        // Refresh token expired or invalid — clear state completely
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem('yatrai_user');
+      } finally {
+        setAuthLoading(false);
+      }
     };
-    const fakeToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.fake';
-    setUser(fakeUser);
-    setToken(fakeToken);
-    // In production the server would set an httpOnly refresh cookie
-    return fakeUser;
+
+    restoreSession();
   }, []);
 
+  useEffect(() => {
+    if (token) {
+      initSocket(token);
+    } else {
+      disconnectSocket();
+    }
+  }, [token]);
+
+  /* ── Login ──────────────────────────────────────────────── */
+  const login = useCallback(async (email, password) => {
+    const data = await apiLogin(email, password);
+    setUser(data.user);
+    setToken(data.accessToken);
+    localStorage.setItem('yatrai_user', JSON.stringify(data.user));
+    return data.user;
+  }, []);
+
+  /* ── Register ───────────────────────────────────────────── */
   const register = useCallback(async (name, email, password) => {
-    await fakeApiDelay();
-    const fakeUser = { id: '2', name, email, avatar: null };
-    const fakeToken = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.fake-reg';
-    setUser(fakeUser);
-    setToken(fakeToken);
-    return fakeUser;
+    const data = await apiRegister(name, email, password);
+    return data;
   }, []);
 
-  const logout = useCallback(() => {
+  /* ── Logout ─────────────────────────────────────────────── */
+  const logout = useCallback(async () => {
+    try {
+      if (token) await apiLogout(token);
+    } catch {
+      // Ignore logout errors
+    }
+    disconnectSocket();
     setUser(null);
     setToken(null);
-    // In production: call /api/auth/logout to clear httpOnly cookie
+    localStorage.removeItem('yatrai_user');
+    sessionStorage.clear();
+  }, [token]);
+
+  const updateUser = useCallback((updates) => {
+    setUser((prev) => {
+      const next = { ...prev, ...updates };
+      localStorage.setItem('yatrai_user', JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated, login, logout, register }}
+      value={{ user, token, isAuthenticated, authLoading, login, logout, register, updateUser }}
     >
       {children}
     </AuthContext.Provider>

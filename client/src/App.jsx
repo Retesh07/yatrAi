@@ -12,10 +12,24 @@ import TripDetail from './pages/TripDetail';
 import Explore from './pages/Explore';
 import Notifications from './pages/Notifications';
 import Settings from './pages/Settings';
+import ResetPassword from './pages/ResetPassword';
 
 /* ── Protected Route wrapper ──────────────────────────────── */
 function ProtectedRoute({ children }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authLoading } = useAuth();
+
+  // Still checking session — don't redirect yet
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface dark:bg-[#0F0F0F]">
+        <svg className="h-10 w-10 animate-spin text-primary-container" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+          <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
+        </svg>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   return children;
 }
@@ -27,6 +41,7 @@ function AppRoutes() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/explore" element={<Explore />} />
 
       {/* Protected Routes */}

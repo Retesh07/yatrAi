@@ -1,91 +1,425 @@
-import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import Toast from '../components/Toast';
+import { apiGetTrip } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
-/* ── Mock trip data ───────────────────────────────────────── */
-const tripData = {
-  destination: 'Jaipur',
-  dates: 'Mar 15 - Mar 20, 2026',
-  people: 'Couple',
-  budget: 'Standard',
-  status: 'Completed',
-  emoji: '🏰',
+const WEATHER_CODE_LABELS = {
+  0: 'Clear sky',
+  1: 'Mainly clear',
+  2: 'Partly cloudy',
+  3: 'Overcast',
+  45: 'Fog',
+  48: 'Depositing rime fog',
+  51: 'Light drizzle',
+  53: 'Moderate drizzle',
+  55: 'Dense drizzle',
+  56: 'Freezing drizzle',
+  57: 'Dense freezing drizzle',
+  61: 'Slight rain',
+  63: 'Moderate rain',
+  65: 'Heavy rain',
+  66: 'Freezing rain',
+  67: 'Heavy freezing rain',
+  71: 'Slight snow fall',
+  73: 'Moderate snow fall',
+  75: 'Heavy snow fall',
+  77: 'Snow grains',
+  80: 'Rain showers',
+  81: 'Moderate rain showers',
+  82: 'Violent rain showers',
+  85: 'Slight snow showers',
+  86: 'Heavy snow showers',
+  95: 'Thunderstorm',
+  96: 'Thunderstorm with hail',
+  99: 'Thunderstorm with heavy hail',
 };
 
-const itineraryDays = [
-  {
-    day: 1,
-    title: 'Arrival & Heritage',
-    events: [
-      { time: '8:00 AM', title: 'Arrive at Jaipur Airport', desc: 'Check into Rambagh Palace Hotel. Freshen up and have breakfast.', icon: '✈️' },
-      { time: '11:00 AM', title: 'Hawa Mahal Visit', desc: 'Explore the iconic Palace of Winds. Great photo opportunities from the rooftop.', icon: '🏛️' },
-      { time: '1:00 PM', title: 'Lunch at LMB', desc: 'Try the famous dal bati churma and ghewar at Laxmi Mishthan Bhandar.', icon: '🍽️' },
-      { time: '3:00 PM', title: 'City Palace Tour', desc: 'Explore the royal museum, courtyards, and gardens. See the Peacock Gate.', icon: '👑' },
-      { time: '6:00 PM', title: 'Nahargarh Fort Sunset', desc: 'Drive up to Nahargarh for panoramic sunset views of the Pink City.', icon: '🌇' },
-      { time: '8:00 PM', title: 'Dinner at 1135 AD', desc: 'Royal dining experience at Amber Fort with traditional Rajasthani cuisine.', icon: '🥘' },
-    ],
-  },
-  {
-    day: 2,
-    title: 'Forts & Markets',
-    events: [
-      { time: '7:00 AM', title: 'Amber Fort Excursion', desc: 'Take an elephant ride up to the magnificent fort. Explore Sheesh Mahal (Mirror Palace).', icon: '🐘' },
-      { time: '12:00 PM', title: 'Jal Mahal Photo Stop', desc: 'Visit the stunning Water Palace in Man Sagar Lake. Perfect for photography.', icon: '📸' },
-      { time: '1:30 PM', title: 'Street Food Tour', desc: 'Explore Johari Bazaar. Try pyaaz kachori, mirchi bada, and kulfi.', icon: '🥘' },
-      { time: '4:00 PM', title: 'Jantar Mantar', desc: 'Visit the UNESCO World Heritage astronomical observation site.', icon: '🔭' },
-      { time: '6:00 PM', title: 'Bazaar Shopping', desc: 'Shop for block prints, gemstones, blue pottery, and mojari shoes.', icon: '🛍️' },
-      { time: '8:30 PM', title: 'Rooftop Dinner', desc: 'Enjoy skyline views at Wind View Café with live folk music.', icon: '🎵' },
-    ],
-  },
-  {
-    day: 3,
-    title: 'Art, Culture & Departure',
-    events: [
-      { time: '8:00 AM', title: 'Albert Hall Museum', desc: "Explore India's oldest museum with Indo-Saracenic architecture.", icon: '🏛️' },
-      { time: '10:30 AM', title: 'Anokhi Museum', desc: 'Learn about hand block printing traditions of Rajasthan.', icon: '🎨' },
-      { time: '12:00 PM', title: 'Farewell Lunch', desc: 'Enjoy a royal thali at Chokhi Dhani ethnic village resort.', icon: '🍛' },
-      { time: '3:00 PM', title: 'Souvenir Shopping', desc: 'Last-minute shopping at Bapu Bazaar for textiles and handicrafts.', icon: '🎁' },
-      { time: '5:00 PM', title: 'Depart Jaipur', desc: 'Head to the airport with beautiful memories of the Pink City.', icon: '👋' },
-    ],
-  },
-];
+const WEATHER_SHORT_LABELS = {
+  0: 'Clear',
+  1: 'Clear',
+  2: 'Partly cloudy',
+  3: 'Cloudy',
+  45: 'Fog',
+  48: 'Fog',
+  51: 'Drizzle',
+  53: 'Drizzle',
+  55: 'Drizzle',
+  56: 'Drizzle',
+  57: 'Drizzle',
+  61: 'Rain',
+  63: 'Rain',
+  65: 'Heavy rain',
+  66: 'Rain',
+  67: 'Heavy rain',
+  71: 'Snow',
+  73: 'Snow',
+  75: 'Snow',
+  77: 'Snow',
+  80: 'Showers',
+  81: 'Showers',
+  82: 'Storm',
+  85: 'Snow',
+  86: 'Snow',
+  95: 'Storm',
+  96: 'Storm',
+  99: 'Storm',
+};
 
-const packingItems = [
-  { id: 1, item: 'Comfortable walking shoes', category: 'Clothing' },
-  { id: 2, item: 'Light cotton clothes', category: 'Clothing' },
-  { id: 3, item: 'Sun hat & sunglasses', category: 'Accessories' },
-  { id: 4, item: 'Sunscreen SPF 50+', category: 'Toiletries' },
-  { id: 5, item: 'Camera + charger', category: 'Electronics' },
-  { id: 6, item: 'Power bank', category: 'Electronics' },
-  { id: 7, item: 'Water bottle', category: 'Essentials' },
-  { id: 8, item: 'First aid kit', category: 'Essentials' },
-  { id: 9, item: 'Light scarf/dupatta for temples', category: 'Clothing' },
-  { id: 10, item: 'Copies of ID & booking confirmations', category: 'Documents' },
-];
+const WEATHER_CODE_ICONS = {
+  0: '☀️',
+  1: '🌤️',
+  2: '⛅',
+  3: '☁️',
+  45: '🌫️',
+  48: '🌫️',
+  51: '🌦️',
+  53: '🌦️',
+  55: '🌧️',
+  56: '🌧️',
+  57: '🌧️',
+  61: '🌧️',
+  63: '🌧️',
+  65: '🌧️',
+  66: '🌧️',
+  67: '🌧️',
+  71: '🌨️',
+  73: '🌨️',
+  75: '❄️',
+  77: '🌨️',
+  80: '🌦️',
+  81: '🌧️',
+  82: '⛈️',
+  85: '🌨️',
+  86: '❄️',
+  95: '⛈️',
+  96: '⛈️',
+  99: '⛈️',
+};
+
+function toTitleCase(value = '') {
+  return String(value)
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function formatWeatherDate(dateString) {
+  return new Date(dateString).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function formatCompactWeatherDate(dateString) {
+  return new Date(dateString).toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+function addDaysIso(dateString, days) {
+  const date = new Date(`${dateString}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
+
+function getWeatherLabel(code) {
+  return WEATHER_CODE_LABELS[code] || 'Weather update';
+}
+
+function getWeatherShortLabel(code) {
+  return WEATHER_SHORT_LABELS[code] || 'Forecast';
+}
+
+function getWeatherIcon(code) {
+  return WEATHER_CODE_ICONS[code] || '🌤️';
+}
 
 export default function TripDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { token } = useAuth();
+
+  const [trip, setTrip] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('itinerary');
   const [checkedItems, setCheckedItems] = useState({});
-  const [notes, setNotes] = useState({ 1: '', 2: '', 3: '' });
+  const [notes, setNotes] = useState({});
   const [toast, setToast] = useState(null);
+  const [polling, setPolling] = useState(false);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState('');
+  const [weatherData, setWeatherData] = useState(null);
+  const [locationData, setLocationData] = useState(null);
+  // 'live' | 'trip-forecast' | 'too-far' | 'past'
+  const [weatherContext, setWeatherContext] = useState('live');
+  const [daysUntilTrip, setDaysUntilTrip] = useState(null);
+
+  useEffect(() => {
+    let intervalId;
+
+    async function fetchTripDetail() {
+      if (!id || !token) return;
+      try {
+        setLoading(true);
+        const data = await apiGetTrip(id, token);
+        if (data.success && data.trip) {
+          setTrip(data.trip);
+          if (data.trip.status === 'generating' || data.trip.status === 'failed') {
+            setPolling(true);
+          } else {
+            setPolling(false);
+          }
+        } else {
+          setError('Trip not found');
+        }
+      } catch (err) {
+        console.error('Error fetching trip:', err);
+        setError(err.message || 'Could not load trip details');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTripDetail();
+
+    if (polling) {
+      intervalId = setInterval(fetchTripDetail, 5000);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [id, token, polling]);
+
+
+  useEffect(() => {
+    if (!trip?.destination) return;
+
+    const controller = new AbortController();
+
+    async function fetchDestinationWeather() {
+      try {
+        setWeatherLoading(true);
+        setWeatherError('');
+
+        // ── Compute trip timing ──────────────────────────────────────────
+        const todayStr = new Date().toISOString().split('T')[0];
+        const startStr = trip.startDate || todayStr;
+        const endStr   = trip.endDate   || startStr;
+
+        const msPerDay   = 86400000;
+        const todayMs    = new Date(todayStr).getTime();
+        const startMs    = new Date(startStr).getTime();
+        const endMs      = new Date(endStr).getTime();
+        const daysToStart = Math.round((startMs - todayMs) / msPerDay);
+        const daysToEnd   = Math.round((endMs   - todayMs) / msPerDay);
+
+        setDaysUntilTrip(daysToStart);
+
+        // Determine context
+        let ctx = 'live';
+        if (daysToStart > 16)        ctx = 'too-far';
+        else if (daysToEnd < 0)      ctx = 'past';
+        else if (daysToStart > 0)    ctx = 'trip-forecast';
+        else                          ctx = 'live'; // trip is today or ongoing
+        setWeatherContext(ctx);
+
+        // ── Geocode destination ──────────────────────────────────────────
+        const geoResponse = await fetch(
+          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(trip.destination)}&count=1&language=en&format=json`,
+          { signal: controller.signal }
+        );
+        if (!geoResponse.ok) throw new Error('Could not load destination location');
+
+        const geoData = await geoResponse.json();
+        const location = geoData.results?.[0];
+        if (!location) throw new Error('No coordinates found for this trip destination');
+        setLocationData(location);
+
+        // ── If trip is too far in future, skip weather API ───────────────
+        if (ctx === 'too-far') {
+          setWeatherLoading(false);
+          return;
+        }
+
+        // ── Build API URL based on context ───────────────────────────────
+        const base = `https://api.open-meteo.com/v1/forecast?latitude=${location.latitude}&longitude=${location.longitude}&timezone=auto`;
+        let url = '';
+
+        if (ctx === 'live') {
+          // Show current + today through end of trip (max 16 days)
+          const tripDays = Math.min(Math.max(daysToEnd + 1, 1), 7);
+          url = `${base}&current=temperature_2m,weather_code,wind_speed_10m,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&start_date=${todayStr}&end_date=${endStr}`;
+        } else if (ctx === 'trip-forecast') {
+          // No current; fetch only trip date range
+          url = `${base}&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&start_date=${startStr}&end_date=${endStr}`;
+        } else {
+          // past trip — show current + 5 days
+          url = `${base}&current=temperature_2m,weather_code,wind_speed_10m,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&forecast_days=5`;
+        }
+
+        const weatherResponse = await fetch(url, { signal: controller.signal });
+        if (!weatherResponse.ok) throw new Error('Could not load weather forecast');
+
+        const forecastData = await weatherResponse.json();
+        setWeatherData(forecastData);
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.error('Weather load failed:', err);
+          setWeatherError(err.message || 'Unable to load weather right now');
+        }
+      } finally {
+        if (!controller.signal.aborted) setWeatherLoading(false);
+      }
+    }
+
+    fetchDestinationWeather();
+
+    return () => controller.abort();
+  }, [trip?.destination, trip?.startDate, trip?.endDate]);
 
   const toggleCheck = (itemId) => {
     setCheckedItems((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
   };
 
+  const buildFallbackItinerary = (trip) => {
+    const baseIcon = trip.travelStyle?.[0] === 'Adventure' ? '🏔️'
+      : trip.travelStyle?.[0] === 'Relaxation' ? '🏖️'
+      : trip.travelStyle?.[0] === 'Cultural' ? '🏛️'
+      : trip.travelStyle?.[0] === 'Spiritual' ? '🕉️'
+      : '📍';
+    const dayCount = Math.max(3, Math.min(7, trip.days?.length || 3));
+
+    return Array.from({ length: dayCount }, (_, index) => {
+      const day = index + 1;
+      return {
+        day,
+        title: `${trip.destination?.split(' ')[0] || 'Trip'} Highlights`,
+        events: [
+          {
+            time: '09:00',
+            title: `Morning ${trip.travelStyle?.[0]?.toLowerCase() || 'exploration'} experience`,
+            desc: `Start Day ${day} with a curated activity in ${trip.destination}.`,
+            icon: baseIcon,
+          },
+          {
+            time: '13:00',
+            title: 'Local lunch',
+            desc: 'Enjoy a popular local meal and recharge for the afternoon.',
+            icon: '🍲',
+          },
+          {
+            time: '16:00',
+            title: 'Afternoon exploration',
+            desc: 'Visit a must-see attraction and discover the local culture.',
+            icon: '🧭',
+          },
+        ],
+      };
+    });
+  };
+
   const tabs = [
-    { key: 'itinerary', label: 'Itinerary', icon: '📋' },
-    { key: 'map', label: 'Map', icon: '🗺️' },
+    { key: 'itinerary', label: 'Day-by-Day Places', icon: '📍' },
+    { key: 'hotels', label: 'Best Hotels & Prices', icon: '🏨' },
     { key: 'packing', label: 'Packing List', icon: '🎒' },
-    { key: 'notes', label: 'Notes', icon: '📝' },
   ];
 
   const statusColors = {
-    Completed: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
-    Upcoming: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
-    Planning: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    completed: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400',
+    generating: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400',
+    draft: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+    failed: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400',
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface dark:bg-[#0F0F0F]">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center py-32 text-secondary dark:text-gray-400">
+          <svg className="h-8 w-8 animate-spin text-primary-container mb-3" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+            <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
+          </svg>
+          Loading your trip details...
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !trip) {
+    return (
+      <div className="min-h-screen bg-surface dark:bg-[#0F0F0F]">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center py-32">
+          <p className="text-4xl mb-3">⚠️</p>
+          <p className="text-lg font-bold text-on-surface dark:text-white">{error || 'Trip not found'}</p>
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="mt-4 rounded-xl bg-primary-container px-5 py-2.5 text-xs font-semibold text-on-primary-container"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const fromCity = trip.fromLocation || 'Delhi';
+  const toCity = trip.destination;
+  const days = trip.days && trip.days.length > 0 ? trip.days : buildFallbackItinerary(trip);
+  const hotels = trip.recommendedHotels && trip.recommendedHotels.length > 0 ? trip.recommendedHotels : [
+    { name: `${trip.destination?.split(' ')[0] || 'Stay'} Comfort`, pricePerNight: '₹3,999', rating: '4.4', area: `${trip.destination?.split(' ')[0] || 'City'} Center` },
+  ];
+
+  const sanitizeFileName = (value = 'trip') =>
+    String(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '') || 'trip';
+
+  const mapEmbedUrl = locationData
+    ? (() => {
+        const lat = locationData.latitude;
+        const lon = locationData.longitude;
+        const delta = 0.08;
+        const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join('%2C');
+        return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
+      })()
+    : '';
+
+  const mapOpenUrl = locationData
+    ? `https://www.openstreetmap.org/?mlat=${locationData.latitude}&mlon=${locationData.longitude}#map=12/${locationData.latitude}/${locationData.longitude}`
+    : `https://www.openstreetmap.org/search?query=${encodeURIComponent(toCity)}`;
+
+  const downloadItinerary = () => {
+    const itineraryText = [
+      `${fromCity} → ${toCity}`,
+      `Dates: ${trip.startDate} → ${trip.endDate}`,
+      '',
+      ...days.map((day) => {
+        const eventLines = (day.events || []).map((event) => `- ${event.time} ${event.title}: ${event.desc}`);
+        return [`Day ${day.day}: ${day.title}`, ...eventLines].join('\n');
+      }),
+    ].join('\n\n');
+
+    const blob = new Blob([itineraryText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${sanitizeFileName(fromCity)}-to-${sanitizeFileName(toCity)}-itinerary.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    setToast('Itinerary downloaded successfully!');
   };
 
   return (
@@ -98,35 +432,44 @@ export default function TripDetail() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-rose-600 text-3xl">
-                {tripData.emoji}
+                🏰
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-on-surface dark:text-white">{tripData.destination}</h1>
-                <p className="text-sm text-secondary dark:text-gray-400">{tripData.dates}</p>
+                <h1 className="text-2xl font-bold text-on-surface dark:text-white">{fromCity} ➔ {toCity}</h1>
+                <p className="text-sm text-secondary dark:text-gray-400">{trip.startDate} → {trip.endDate}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`text-xs font-medium px-3 py-1 rounded-lg ${statusColors[tripData.status]}`}>
-                {tripData.status}
+              <span className={`text-xs font-medium px-3 py-1 rounded-lg capitalize ${statusColors[trip.status] || statusColors.completed}`}>
+                {trip.status}
               </span>
-              <span className="text-xs px-3 py-1 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-400">
-                👥 {tripData.people}
-              </span>
-              <span className="text-xs px-3 py-1 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-400">
-                💰 {tripData.budget}
-              </span>
+              {trip.estimatedCost && (
+                <span className="text-xs font-bold px-3 py-1 rounded-lg bg-green-500/10 text-green-700 dark:text-green-400 border border-green-500/20">
+                  Est: {trip.estimatedCost}
+                </span>
+              )}
+              {trip.people && (
+                <span className="text-xs px-3 py-1 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-400">
+                  👥 {trip.people}
+                </span>
+              )}
+              {trip.budget && (
+                <span className="text-xs px-3 py-1 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-400">
+                  💰 {trip.budget}
+                </span>
+              )}
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="mt-6 flex flex-wrap gap-3">
             <button
-              onClick={() => setToast('PDF export coming soon!')}
+              onClick={downloadItinerary}
               className="rounded-xl border border-outline-variant/40 dark:border-white/10 px-4 py-2.5 text-sm font-medium text-on-surface dark:text-white hover:bg-surface-container dark:hover:bg-white/5 transition-all flex items-center gap-2"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /><polyline points="10 9 9 9 8 9" /></svg>
-              Export PDF
+              Download Itinerary
             </button>
             <button
               onClick={() => {
@@ -138,14 +481,218 @@ export default function TripDetail() {
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" /></svg>
               Share Link
             </button>
-            <button
-              onClick={() => setToast('Edit mode coming soon!')}
-              className="rounded-xl border border-outline-variant/40 dark:border-white/10 px-4 py-2.5 text-sm font-medium text-on-surface dark:text-white hover:bg-surface-container dark:hover:bg-white/5 transition-all flex items-center gap-2"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              Edit Trip
-            </button>
           </div>
+        </div>
+
+        <div className="mt-8 grid grid-cols-1 xl:grid-cols-[1.05fr_0.95fr] gap-6">
+          <section className="rounded-3xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm">
+            {/* ── Section header ── */}
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-secondary dark:text-gray-500">
+                  {weatherContext === 'live'          ? 'Live Weather'
+                  : weatherContext === 'trip-forecast' ? 'Trip Forecast'
+                  : weatherContext === 'too-far'       ? 'Weather Outlook'
+                  : 'Weather'}
+                </p>
+                <h2 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">{trip.destination}</h2>
+                <p className="text-sm text-secondary dark:text-gray-400">
+                  {weatherContext === 'too-far'
+                    ? `${daysUntilTrip} days until your trip`
+                    : weatherContext === 'trip-forecast'
+                    ? `Forecast for your trip · ${trip.startDate} → ${trip.endDate}`
+                    : weatherContext === 'past'
+                    ? 'Current conditions at destination'
+                    : `Forecast powered by Open-Meteo`}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-primary-container/10 px-3 py-2 text-right shrink-0">
+                <p className="text-[11px] uppercase tracking-[0.18em] text-primary-container">Destination</p>
+                <p className="text-sm font-semibold text-on-surface dark:text-white">{toTitleCase(trip.destination)}</p>
+              </div>
+            </div>
+
+            {/* ── Loading ── */}
+            {weatherLoading ? (
+              <div className="py-10 text-center text-secondary dark:text-gray-400">
+                <svg className="h-7 w-7 animate-spin mx-auto text-primary-container mb-2" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+                  <path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" strokeLinecap="round" className="opacity-75" />
+                </svg>
+                Loading weather forecast...
+              </div>
+
+            ) : weatherError ? (
+              <div className="mt-5 rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-500">{weatherError}</div>
+
+            ) : weatherContext === 'too-far' ? (
+              /* ── TOO FAR IN FUTURE ── */
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/8 p-5 flex gap-4 items-start">
+                  <span className="text-4xl mt-0.5">🔮</span>
+                  <div>
+                    <p className="text-sm font-semibold text-on-surface dark:text-white">Forecast not yet available</p>
+                    <p className="mt-1 text-sm text-secondary dark:text-gray-400">
+                      Weather forecasts are only accurate up to <strong>16 days</strong> in advance.
+                      Your trip starts in <strong className="text-amber-400">{daysUntilTrip} days</strong> — check back closer to your departure.
+                    </p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4 text-center">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Trip Start</p>
+                    <p className="mt-2 text-lg font-bold text-on-surface dark:text-white">{trip.startDate}</p>
+                    <p className="mt-1 text-xs text-secondary dark:text-gray-400">Departure date</p>
+                  </div>
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4 text-center">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Forecast In</p>
+                    <p className="mt-2 text-lg font-bold text-amber-400">{daysUntilTrip - 16} days</p>
+                    <p className="mt-1 text-xs text-secondary dark:text-gray-400">Until forecast ready</p>
+                  </div>
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4 text-center">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Location</p>
+                    <p className="mt-2 text-sm font-semibold text-on-surface dark:text-white">{locationData?.name || trip.destination}</p>
+                    <p className="mt-1 text-xs text-secondary dark:text-gray-400">{locationData?.admin1 ? `${locationData.admin1}, ` : ''}{locationData?.country || 'India'}</p>
+                  </div>
+                </div>
+                <p className="text-xs text-secondary dark:text-gray-500 text-center pt-1">
+                  💡 Tip: Add this trip to your calendar and revisit 2 weeks before departure for an accurate forecast.
+                </p>
+              </div>
+
+            ) : weatherContext === 'trip-forecast' && weatherData?.daily ? (
+              /* ── FUTURE TRIP WITHIN 16 DAYS — show trip-date forecast only ── */
+              <div className="mt-5 space-y-5">
+                <div className="rounded-2xl border border-blue-500/20 bg-blue-500/8 px-4 py-3 flex items-center gap-3">
+                  <span className="text-2xl">📅</span>
+                  <p className="text-sm text-secondary dark:text-gray-400">
+                    Showing forecast for your <strong className="text-on-surface dark:text-white">actual trip dates</strong> ({trip.startDate} → {trip.endDate})
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-on-surface dark:text-white">Your Trip Weather</p>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {(weatherData.daily?.time || []).map((date, index) => (
+                      <div
+                        key={date}
+                        className="min-h-[180px] rounded-2xl border border-blue-500/30 bg-blue-500/5 dark:bg-blue-500/[0.07] p-4 flex flex-col items-center text-center justify-between"
+                      >
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-blue-400 font-semibold">{formatWeatherDate(date)}</p>
+                          <div className="mt-3 text-3xl leading-none">{getWeatherIcon(weatherData.daily.weather_code?.[index])}</div>
+                          <p className="mt-2 text-sm font-semibold text-on-surface dark:text-white">
+                            {Math.round(weatherData.daily.temperature_2m_max?.[index])}° / {Math.round(weatherData.daily.temperature_2m_min?.[index])}°
+                          </p>
+                          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-secondary dark:text-gray-400">
+                            {getWeatherShortLabel(weatherData.daily.weather_code?.[index])}
+                          </p>
+                        </div>
+                        <p className="mt-3 text-xs text-secondary dark:text-gray-500">
+                          Precip {Math.round(weatherData.daily.precipitation_probability_max?.[index] || 0)}%
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+            ) : weatherData?.current ? (
+              /* ── LIVE / ONGOING TRIP ── */
+              <div className="mt-5 space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Now</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <span className="text-3xl">{getWeatherIcon(weatherData.current.weather_code)}</span>
+                      <div>
+                        <p className="text-2xl font-bold text-on-surface dark:text-white">{Math.round(weatherData.current.temperature_2m)}°C</p>
+                        <p className="text-xs text-secondary dark:text-gray-400">Feels like {Math.round(weatherData.current.apparent_temperature)}°C</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Conditions</p>
+                    <p className="mt-2 text-sm font-semibold text-on-surface dark:text-white">{getWeatherLabel(weatherData.current.weather_code)}</p>
+                    <p className="mt-1 text-xs text-secondary dark:text-gray-400">Wind {Math.round(weatherData.current.wind_speed_10m)} km/h</p>
+                  </div>
+                  <div className="rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] p-4">
+                    <p className="text-xs uppercase tracking-[0.2em] text-secondary dark:text-gray-500">Location</p>
+                    <p className="mt-2 text-sm font-semibold text-on-surface dark:text-white">{locationData?.name || trip.destination}</p>
+                    <p className="mt-1 text-xs text-secondary dark:text-gray-400">{locationData?.admin1 ? `${locationData.admin1}, ` : ''}{locationData?.country || 'Destination'}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-on-surface dark:text-white">
+                    {weatherContext === 'past' ? '5-Day Forecast' : 'Trip Day Forecast'}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                    {(weatherData.daily?.time || []).map((date, index) => (
+                      <div
+                        key={date}
+                        className="min-h-[180px] rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02] p-4 flex flex-col items-center text-center justify-between"
+                      >
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-secondary dark:text-gray-500">{formatWeatherDate(date)}</p>
+                          <div className="mt-3 text-3xl leading-none">{getWeatherIcon(weatherData.daily.weather_code?.[index])}</div>
+                          <p className="mt-2 text-sm font-semibold text-on-surface dark:text-white">
+                            {Math.round(weatherData.daily.temperature_2m_max?.[index])}° / {Math.round(weatherData.daily.temperature_2m_min?.[index])}°
+                          </p>
+                          <p className="mt-1 text-[11px] font-medium uppercase tracking-[0.16em] text-secondary dark:text-gray-400">
+                            {getWeatherShortLabel(weatherData.daily.weather_code?.[index])}
+                          </p>
+                        </div>
+                        <p className="mt-3 text-xs text-secondary dark:text-gray-500">
+                          Precip {Math.round(weatherData.daily.precipitation_probability_max?.[index] || 0)}%
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] px-4 py-3 text-sm text-secondary dark:text-gray-400">
+                Weather data will appear here once the destination is resolved.
+              </div>
+            )}
+          </section>
+
+          <section className="rounded-3xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs uppercase tracking-[0.22em] text-secondary dark:text-gray-500">Map</p>
+                <h2 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">
+                  {trip.destination}
+                </h2>
+                <p className="text-sm text-secondary dark:text-gray-400">
+                  OpenStreetMap preview for the destination
+                </p>
+              </div>
+              <a
+                href={mapOpenUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-xl border border-outline-variant/40 dark:border-white/10 px-3 py-2 text-xs font-medium text-on-surface dark:text-white hover:bg-surface-container dark:hover:bg-white/5 transition-colors"
+              >
+                Open map
+              </a>
+            </div>
+
+            {locationData ? (
+              <div className="mt-5 overflow-hidden rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container-lowest dark:bg-[#0F0F0F]">
+                <iframe
+                  title={`${trip.destination} map`}
+                  src={mapEmbedUrl}
+                  className="h-[420px] w-full"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-outline-variant/20 dark:border-white/5 bg-surface-container dark:bg-white/[0.03] px-4 py-3 text-sm text-secondary dark:text-gray-400">
+                Map preview will load when the destination is found.
+              </div>
+            )}
+          </section>
         </div>
 
         {/* Tabs */}
@@ -171,71 +718,87 @@ export default function TripDetail() {
           {/* ── Itinerary Tab ──────────────────────────── */}
           {activeTab === 'itinerary' && (
             <div className="space-y-8">
-              {itineraryDays.map((day) => (
-                <div key={day.day}>
-                  <h3 className="text-lg font-bold text-on-surface dark:text-white mb-4">
-                    Day {day.day}: {day.title}
-                  </h3>
-
-                  <div className="relative pl-8 space-y-0">
-                    {/* Timeline line */}
-                    <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-outline-variant/30 dark:bg-white/10" />
-
-                    {day.events.map((event, i) => (
-                      <div key={i} className="relative pb-6 last:pb-0">
-                        {/* Timeline dot */}
-                        <div className="absolute -left-5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-surface-container-lowest dark:bg-[#0F0F0F] border-2 border-primary-container text-xs">
-                          {event.icon}
-                        </div>
-
-                        <div className="rounded-xl border border-outline-variant/20 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02] p-4 ml-4 hover:shadow-md transition-all duration-200">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs font-mono text-primary-container">{event.time}</span>
-                          </div>
-                          <h4 className="font-semibold text-sm text-on-surface dark:text-white">{event.title}</h4>
-                          <p className="text-sm text-secondary dark:text-gray-400 mt-1 leading-relaxed">{event.desc}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              {days.length === 0 ? (
+                <div className="py-8 text-center text-secondary dark:text-gray-400">
+                  No itinerary details found for this trip.
                 </div>
-              ))}
+              ) : (
+                days.map((day) => (
+                  <div key={day.day}>
+                    <h3 className="text-lg font-bold text-on-surface dark:text-white mb-4">
+                      Day {day.day}: {day.title}
+                    </h3>
+
+                    <div className="relative pl-8 space-y-0">
+                      {/* Timeline line */}
+                      <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-outline-variant/30 dark:bg-white/10" />
+
+                      {(day.events || []).map((event, i) => (
+                        <div key={i} className="relative pb-6 last:pb-0">
+                          {/* Timeline dot */}
+                          <div className="absolute -left-5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-surface-container-lowest dark:bg-[#0F0F0F] border-2 border-primary-container text-xs">
+                            {event.icon || '📍'}
+                          </div>
+
+                          <div className="rounded-xl border border-outline-variant/20 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02] p-4 ml-4 hover:shadow-md transition-all duration-200">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-mono text-primary-container">{event.time}</span>
+                            </div>
+                            <h4 className="font-semibold text-sm text-on-surface dark:text-white">{event.title}</h4>
+                            <p className="text-sm text-secondary dark:text-gray-400 mt-1 leading-relaxed">{event.desc}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
-          {/* ── Map Tab ────────────────────────────────── */}
-          {activeTab === 'map' && (
-            <div className="rounded-2xl border border-outline-variant/30 dark:border-white/10 overflow-hidden">
-              <iframe
-                title="Trip Map"
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d227749.05364834927!2d75.65045930609833!3d26.88511680125647!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x396c4adf4c57e281%3A0xce1c63a0cf22e09!2sJaipur%2C%20Rajasthan!5e0!3m2!1sen!2sin!4v1710000000000!5m2!1sen!2sin"
-                width="100%"
-                height="450"
-                style={{ border: 0 }}
-                allowFullScreen=""
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-                className="w-full"
-              />
+          {/* ── Best Hotels & Prices Tab ────────────────── */}
+          {activeTab === 'hotels' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {hotels.length === 0 ? (
+                <div className="py-8 text-center text-secondary dark:text-gray-400 col-span-2">
+                  No hotel suggestions generated for this trip.
+                </div>
+              ) : (
+                hotels.map((hotel, idx) => (
+                  <div key={idx} className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-xs text-primary-container font-semibold">Recommended Hotel #{idx + 1}</span>
+                        <h4 className="text-base font-bold text-on-surface dark:text-white mt-0.5">{hotel.name}</h4>
+                        <p className="text-xs text-secondary dark:text-gray-400 mt-1">📍 {hotel.area || toCity}</p>
+                      </div>
+                      <span className="text-sm font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg">
+                        {hotel.rating || '4.5★'}
+                      </span>
+                    </div>
+                    <div className="mt-4 pt-3 border-t border-outline-variant/20 dark:border-white/5 flex items-center justify-between">
+                      <span className="text-xs text-secondary dark:text-gray-400">Est. Price:</span>
+                      <span className="text-sm font-bold text-green-600 dark:text-green-400">{hotel.pricePerNight}</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           )}
 
           {/* ── Packing List Tab ───────────────────────── */}
           {activeTab === 'packing' && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-secondary dark:text-gray-400">
-                  {Object.values(checkedItems).filter(Boolean).length} of {packingItems.length} packed
-                </p>
-                <div className="h-2 w-32 rounded-full bg-surface-container dark:bg-white/10">
-                  <div
-                    className="h-2 rounded-full bg-primary-container transition-all"
-                    style={{ width: `${(Object.values(checkedItems).filter(Boolean).length / packingItems.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              {packingItems.map((item) => (
+              {[
+                { id: 1, item: 'Comfortable walking shoes', category: 'Clothing' },
+                { id: 2, item: 'Light cotton clothes', category: 'Clothing' },
+                { id: 3, item: 'Sun hat & sunglasses', category: 'Accessories' },
+                { id: 4, item: 'Sunscreen SPF 50+', category: 'Toiletries' },
+                { id: 5, item: 'Camera + charger', category: 'Electronics' },
+                { id: 6, item: 'Power bank', category: 'Electronics' },
+                { id: 7, item: 'Water bottle', category: 'Essentials' },
+                { id: 8, item: 'Copies of ID & booking confirmations', category: 'Documents' },
+              ].map((item) => (
                 <button
                   key={item.id}
                   onClick={() => toggleCheck(item.id)}
@@ -264,42 +827,12 @@ export default function TripDetail() {
               ))}
             </div>
           )}
-
-          {/* ── Notes Tab ──────────────────────────────── */}
-          {activeTab === 'notes' && (
-            <div className="space-y-6">
-              {[1, 2, 3].map((day) => (
-                <div key={day}>
-                  <h3 className="text-sm font-semibold text-on-surface dark:text-white mb-2">
-                    Day {day} Notes
-                  </h3>
-                  <textarea
-                    value={notes[day]}
-                    onChange={(e) => setNotes((prev) => ({ ...prev, [day]: e.target.value }))}
-                    placeholder={`Add notes for Day ${day}...`}
-                    rows={4}
-                    className="w-full rounded-xl border border-outline-variant/40 dark:border-white/10 bg-surface-container-lowest dark:bg-white/5 px-4 py-3 text-sm text-on-surface dark:text-white placeholder:text-secondary/50 focus:outline-none focus:ring-2 focus:ring-primary-container/50 transition-all resize-none"
-                  />
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
-        {/* Weather Strip */}
-        <div className="mt-10 rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-gradient-to-r from-blue-50 via-cyan-50 to-sky-50 dark:from-blue-900/10 dark:via-cyan-900/10 dark:to-sky-900/10 p-4">
-          <div className="flex items-center gap-4 overflow-x-auto scroll-hidden">
-            <span className="text-sm font-semibold text-on-surface dark:text-white whitespace-nowrap">Weather Forecast</span>
-            {['Mon ☀️ 32°', 'Tue 🌤️ 30°', 'Wed ☀️ 34°', 'Thu 🌤️ 31°', 'Fri ☁️ 29°'].map((w, i) => (
-              <span key={i} className="flex-shrink-0 text-xs text-secondary dark:text-gray-400 bg-white/60 dark:bg-white/5 px-3 py-1.5 rounded-lg whitespace-nowrap">
-                {w}
-              </span>
-            ))}
-          </div>
-        </div>
       </div>
 
       {toast && <Toast message={toast} type="success" onClose={() => setToast(null)} />}
     </div>
   );
 }
+
