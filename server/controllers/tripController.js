@@ -1,8 +1,26 @@
 const Trip = require('../models/Trip');
-const { generateItinerary, streamItinerary } = require('../services/groqService');
+const { generateItinerary, streamItinerary, normalizeItineraryResponse } = require('../services/groqService');
 const { addPublicTripShareJob } = require('../services/queueService');
 const { notifyTripSaved, notifyTripGenerated } = require('../services/tripNotificationService');
 const { emitToUser } = require('../services/socketService');
+
+// Only allow DB-safe fields from AI response — never spread raw Groq output
+const SAFE_AI_FIELDS = [
+  'days', 'hotels', 'recommendedHotels', 'restaurants',
+  'transitOptions', 'budgetBreakdown', 'estimatedCost',
+  'tripSummary', 'mustVisitPlaces', 'packingChecklist',
+  'shoppingRecommendations', 'essentialTips',
+  'emergencyInformation', 'tripStatistics',
+];
+
+function pickSafeFields(data) {
+  if (!data || typeof data !== 'object') return {};
+  const safe = {};
+  for (const key of SAFE_AI_FIELDS) {
+    if (data[key] !== undefined) safe[key] = data[key];
+  }
+  return safe;
+}
 
 // @route   GET /api/v1/trips/:id/stream
 // @desc    Stream AI itinerary generation via SSE, then save result to DB
@@ -58,15 +76,14 @@ exports.streamTripItinerary = async (req, res) => {
       throw new Error('AI response missing days');
     }
 
+    // Normalize through the same pipeline as generateItinerary
+    const normalized = normalizeItineraryResponse(parsed, null);
+    const safeUpdate = pickSafeFields(normalized);
+
     const updated = await Trip.findByIdAndUpdate(
       trip._id,
-      {
-        days: parsed.days,
-        recommendedHotels: parsed.recommendedHotels || [],
-        estimatedCost: parsed.estimatedTotalCost || trip.estimatedCost,
-        status: 'completed',
-      },
-      { new: true }
+      { ...safeUpdate, status: 'completed' },
+      { returnDocument: 'after' }
     );
 
     // Notify via Socket.io
@@ -84,10 +101,11 @@ exports.streamTripItinerary = async (req, res) => {
     // Fall back to non-streaming generation
     try {
       const fallback = await generateItinerary(trip);
+      const safeUpdate = pickSafeFields(fallback);
       const updated = await Trip.findByIdAndUpdate(
         trip._id,
-        { days: fallback.days, recommendedHotels: fallback.recommendedHotels, estimatedCost: fallback.estimatedTotalCost || trip.estimatedCost, status: 'completed' },
-        { new: true }
+        { ...safeUpdate, status: 'completed' },
+        { returnDocument: 'after' }
       );
       emitToUser(trip.user.toString(), 'tripReady', { tripId: trip._id, destination: trip.destination });
       send({ type: 'done', trip: updated });
@@ -179,17 +197,13 @@ exports.generateTripItinerary = async (req, res) => {
     console.log(`Generating itinerary for trip ${trip._id} (${trip.destination})...`);
 
     try {
-      const { days, recommendedHotels, estimatedTotalCost } = await generateItinerary(trip);
+      const generatedData = await generateItinerary(trip);
+      const safeUpdate = pickSafeFields(generatedData);
 
       const updatedTrip = await Trip.findByIdAndUpdate(
         trip._id,
-        {
-          days,
-          recommendedHotels,
-          estimatedCost: estimatedTotalCost || trip.estimatedCost,
-          status: 'completed',
-        },
-        { new: true }
+        { ...safeUpdate, status: 'completed' },
+        { returnDocument: 'after' }
       );
 
       try {

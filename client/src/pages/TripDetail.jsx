@@ -212,34 +212,42 @@ export default function TripDetail() {
         // ── Compute trip timing ──────────────────────────────────────────
         const todayStr = new Date().toISOString().split('T')[0];
         const startStr = trip.startDate || todayStr;
-        const endStr   = trip.endDate   || startStr;
+        const endStr = trip.endDate || startStr;
 
-        const msPerDay   = 86400000;
-        const todayMs    = new Date(todayStr).getTime();
-        const startMs    = new Date(startStr).getTime();
-        const endMs      = new Date(endStr).getTime();
+        const msPerDay = 86400000;
+        const todayMs = new Date(todayStr).getTime();
+        const startMs = new Date(startStr).getTime();
+        const endMs = new Date(endStr).getTime();
         const daysToStart = Math.round((startMs - todayMs) / msPerDay);
-        const daysToEnd   = Math.round((endMs   - todayMs) / msPerDay);
+        const daysToEnd = Math.round((endMs - todayMs) / msPerDay);
 
         setDaysUntilTrip(daysToStart);
 
         // Determine context
         let ctx = 'live';
-        if (daysToStart > 16)        ctx = 'too-far';
-        else if (daysToEnd < 0)      ctx = 'past';
-        else if (daysToStart > 0)    ctx = 'trip-forecast';
-        else                          ctx = 'live'; // trip is today or ongoing
+        if (daysToStart > 16) ctx = 'too-far';
+        else if (daysToEnd < 0) ctx = 'past';
+        else if (daysToStart > 0) ctx = 'trip-forecast';
+        else ctx = 'live'; // trip is today or ongoing
         setWeatherContext(ctx);
 
         // ── Geocode destination ──────────────────────────────────────────
-        const geoResponse = await fetch(
-          `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(trip.destination)}&count=1&language=en&format=json`,
-          { signal: controller.signal }
-        );
-        if (!geoResponse.ok) throw new Error('Could not load destination location');
-
-        const geoData = await geoResponse.json();
-        const location = geoData.results?.[0];
+        // Try full destination name first, then fall back to first word for compound names like "Leh-Ladakh"
+        let location = null;
+        const destVariants = [trip.destination];
+        if (/[-,\/]/.test(trip.destination)) {
+          destVariants.push(trip.destination.split(/[-,\/]/)[0].trim());
+        }
+        for (const destName of destVariants) {
+          const geoResponse = await fetch(
+            `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(destName)}&count=1&language=en&format=json`,
+            { signal: controller.signal }
+          );
+          if (!geoResponse.ok) continue;
+          const geoData = await geoResponse.json();
+          location = geoData.results?.[0];
+          if (location) break;
+        }
         if (!location) throw new Error('No coordinates found for this trip destination');
         setLocationData(location);
 
@@ -292,9 +300,9 @@ export default function TripDetail() {
   const buildFallbackItinerary = (trip) => {
     const baseIcon = trip.travelStyle?.[0] === 'Adventure' ? '🏔️'
       : trip.travelStyle?.[0] === 'Relaxation' ? '🏖️'
-      : trip.travelStyle?.[0] === 'Cultural' ? '🏛️'
-      : trip.travelStyle?.[0] === 'Spiritual' ? '🕉️'
-      : '📍';
+        : trip.travelStyle?.[0] === 'Cultural' ? '🏛️'
+          : trip.travelStyle?.[0] === 'Spiritual' ? '🕉️'
+            : '📍';
     const dayCount = Math.max(3, Math.min(7, trip.days?.length || 3));
 
     return Array.from({ length: dayCount }, (_, index) => {
@@ -328,8 +336,11 @@ export default function TripDetail() {
 
   const tabs = [
     { key: 'itinerary', label: 'Day-by-Day Places', icon: '📍' },
-    { key: 'hotels', label: 'Best Hotels & Prices', icon: '🏨' },
-    { key: 'packing', label: 'Packing List', icon: '🎒' },
+    { key: 'transit', label: 'Transit & Boarding', icon: '✈️' },
+    { key: 'hotels', label: 'Hotels', icon: '🏨' },
+    { key: 'restaurants', label: 'Food & Dining', icon: '🍽️' },
+    { key: 'budget', label: 'Budget Breakdown', icon: '💰' },
+    { key: 'packing', label: 'Packing & Tips', icon: '🎒' },
   ];
 
   const statusColors = {
@@ -387,12 +398,12 @@ export default function TripDetail() {
 
   const mapEmbedUrl = locationData
     ? (() => {
-        const lat = locationData.latitude;
-        const lon = locationData.longitude;
-        const delta = 0.08;
-        const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join('%2C');
-        return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
-      })()
+      const lat = locationData.latitude;
+      const lon = locationData.longitude;
+      const delta = 0.08;
+      const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join('%2C');
+      return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
+    })()
     : '';
 
   const mapOpenUrl = locationData
@@ -490,20 +501,20 @@ export default function TripDetail() {
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.22em] text-secondary dark:text-gray-500">
-                  {weatherContext === 'live'          ? 'Live Weather'
-                  : weatherContext === 'trip-forecast' ? 'Trip Forecast'
-                  : weatherContext === 'too-far'       ? 'Weather Outlook'
-                  : 'Weather'}
+                  {weatherContext === 'live' ? 'Live Weather'
+                    : weatherContext === 'trip-forecast' ? 'Trip Forecast'
+                      : weatherContext === 'too-far' ? 'Weather Outlook'
+                        : 'Weather'}
                 </p>
                 <h2 className="mt-1 text-lg font-semibold text-on-surface dark:text-white">{trip.destination}</h2>
                 <p className="text-sm text-secondary dark:text-gray-400">
                   {weatherContext === 'too-far'
                     ? `${daysUntilTrip} days until your trip`
                     : weatherContext === 'trip-forecast'
-                    ? `Forecast for your trip · ${trip.startDate} → ${trip.endDate}`
-                    : weatherContext === 'past'
-                    ? 'Current conditions at destination'
-                    : `Forecast powered by Open-Meteo`}
+                      ? `Forecast for your trip · ${trip.startDate} → ${trip.endDate}`
+                      : weatherContext === 'past'
+                        ? 'Current conditions at destination'
+                        : `Forecast powered by Open-Meteo`}
                 </p>
               </div>
               <div className="rounded-2xl bg-primary-container/10 px-3 py-2 text-right shrink-0">
@@ -701,11 +712,10 @@ export default function TripDetail() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${
-                activeTab === tab.key
+              className={`flex items-center gap-2 px-5 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap ${activeTab === tab.key
                   ? 'border-primary-container text-primary-container'
                   : 'border-transparent text-secondary dark:text-gray-400 hover:text-on-surface dark:hover:text-white'
-              }`}
+                }`}
             >
               <span>{tab.icon}</span>
               {tab.label}
@@ -756,29 +766,112 @@ export default function TripDetail() {
             </div>
           )}
 
-          {/* ── Best Hotels & Prices Tab ────────────────── */}
+          {/* ── Transit & Boarding Tab ─────────────────── */}
+          {activeTab === 'transit' && (
+            <div className="space-y-4">
+              {!(trip.transport?.options?.length || trip.transitOptions?.options?.length) ? (
+                <div className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-6 text-center text-secondary dark:text-gray-400">
+                  <p className="text-2xl mb-2">✈️ 🚆 🚌</p>
+                  <p className="text-sm font-semibold">Recommended route: {fromCity} ➔ {toCity}</p>
+                  <p className="text-xs text-secondary dark:text-gray-500 mt-1">
+                    Book your flight or express train from major hubs in {fromCity} to reach {toCity}.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {(trip.transport?.recommendedRoute || trip.transitOptions?.summary) && (
+                    <div className="rounded-xl border border-blue-500/20 bg-blue-500/10 p-4 text-xs text-blue-600 dark:text-blue-300">
+                      💡 <strong>Route Summary:</strong> {trip.transport?.recommendedRoute || trip.transitOptions?.summary}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {(trip.transport?.options || trip.transitOptions?.options || []).map((opt, i) => (
+                      <div key={i} className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-2 text-sm font-bold text-on-surface dark:text-white">
+                            <span className="text-xl">{opt.mode === 'Flight' ? '✈️' : opt.mode === 'Train' ? '🚆' : opt.mode === 'Bus' ? '🚌' : '🚗'}</span>
+                            {opt.mode}
+                          </span>
+                          <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-green-500/10 text-green-600 dark:text-green-400">
+                            {typeof opt.approxCost === 'number' ? `₹${opt.approxCost.toLocaleString('en-IN')}` : (opt.approxCostPerPerson || opt.approxCost || 'Standard Fare')}
+                          </span>
+                        </div>
+
+                        <div>
+                          <p className="text-sm font-semibold text-primary-container">{opt.provider || opt.details || opt.mode}</p>
+                          <p className="text-xs text-secondary dark:text-gray-400 mt-0.5">⏱️ Duration: {opt.duration}</p>
+                        </div>
+
+                        {(opt.boardingPoint || opt.boardingInfo) && (
+                          <div className="rounded-lg bg-surface-container dark:bg-white/5 p-3 text-xs text-secondary dark:text-gray-300">
+                            <strong>📍 Boarding Point:</strong> {opt.boardingPoint || opt.boardingInfo}
+                          </div>
+                        )}
+
+                        {opt.arrivalPoint && (
+                          <div className="rounded-lg bg-surface-container dark:bg-white/5 p-3 text-xs text-secondary dark:text-gray-300">
+                            <strong>🛬 Arrival Point:</strong> {opt.arrivalPoint}
+                          </div>
+                        )}
+
+                        {opt.tips && (
+                          <p className="text-xs text-amber-600 dark:text-amber-400 italic">
+                            📌 Tip: {opt.tips}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Best Hotels Tab ────────────────── */}
           {activeTab === 'hotels' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {hotels.length === 0 ? (
+              {(trip.hotels || hotels || []).length === 0 ? (
                 <div className="py-8 text-center text-secondary dark:text-gray-400 col-span-2">
                   No hotel suggestions generated for this trip.
                 </div>
               ) : (
-                hotels.map((hotel, idx) => (
-                  <div key={idx} className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm">
+                (trip.hotels || hotels || []).map((hotel, idx) => (
+                  <div key={idx} className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <span className="text-xs text-primary-container font-semibold">Recommended Hotel #{idx + 1}</span>
+                        {hotel.category && (
+                          <span className="text-xs text-primary-container font-semibold uppercase tracking-wider">{hotel.category} Hotel</span>
+                        )}
                         <h4 className="text-base font-bold text-on-surface dark:text-white mt-0.5">{hotel.name}</h4>
-                        <p className="text-xs text-secondary dark:text-gray-400 mt-1">📍 {hotel.area || toCity}</p>
+                        <p className="text-xs text-secondary dark:text-gray-400 mt-0.5">📍 {hotel.area || toCity}</p>
                       </div>
-                      <span className="text-sm font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg">
-                        {hotel.rating || '4.5★'}
+                      <span className="text-sm font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg shrink-0">
+                        {typeof hotel.rating === 'number' ? `${hotel.rating}★` : (hotel.rating || '4.5★')}
                       </span>
                     </div>
-                    <div className="mt-4 pt-3 border-t border-outline-variant/20 dark:border-white/5 flex items-center justify-between">
-                      <span className="text-xs text-secondary dark:text-gray-400">Est. Price:</span>
-                      <span className="text-sm font-bold text-green-600 dark:text-green-400">{hotel.pricePerNight}</span>
+
+                    {hotel.amenities?.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {hotel.amenities.map((am, ai) => (
+                          <span key={ai} className="text-[11px] px-2 py-0.5 rounded-md bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-300">
+                            ✓ {am}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {hotel.whyRecommended && (
+                      <p className="text-xs text-secondary dark:text-gray-400 italic">
+                        "{hotel.whyRecommended}"
+                      </p>
+                    )}
+
+                    <div className="pt-3 border-t border-outline-variant/20 dark:border-white/5 flex items-center justify-between">
+                      <span className="text-xs text-secondary dark:text-gray-400">Est. Rate:</span>
+                      <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                        {typeof hotel.pricePerNight === 'number' ? `₹${hotel.pricePerNight.toLocaleString('en-IN')} / night` : hotel.pricePerNight}
+                      </span>
                     </div>
                   </div>
                 ))
@@ -786,45 +879,202 @@ export default function TripDetail() {
             </div>
           )}
 
-          {/* ── Packing List Tab ───────────────────────── */}
-          {activeTab === 'packing' && (
-            <div className="space-y-3">
-              {[
-                { id: 1, item: 'Comfortable walking shoes', category: 'Clothing' },
-                { id: 2, item: 'Light cotton clothes', category: 'Clothing' },
-                { id: 3, item: 'Sun hat & sunglasses', category: 'Accessories' },
-                { id: 4, item: 'Sunscreen SPF 50+', category: 'Toiletries' },
-                { id: 5, item: 'Camera + charger', category: 'Electronics' },
-                { id: 6, item: 'Power bank', category: 'Electronics' },
-                { id: 7, item: 'Water bottle', category: 'Essentials' },
-                { id: 8, item: 'Copies of ID & booking confirmations', category: 'Documents' },
-              ].map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => toggleCheck(item.id)}
-                  className={`w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200 ${
-                    checkedItems[item.id]
-                      ? 'border-primary-container/30 bg-primary-container/5'
-                      : 'border-outline-variant/30 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02] hover:border-primary-container/20'
-                  }`}
-                >
-                  <div className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-all ${
-                    checkedItems[item.id]
-                      ? 'bg-primary-container border-primary-container'
-                      : 'border-outline-variant/60 dark:border-white/20'
-                  }`}>
-                    {checkedItems[item.id] && (
-                      <svg className="h-3 w-3 text-on-primary-container" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+          {/* ── Food & Dining Tab ──────────────── */}
+          {activeTab === 'restaurants' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {!(trip.restaurants?.length) ? (
+                <div className="py-8 text-center text-secondary dark:text-gray-400 col-span-2">
+                  No restaurant recommendations available for this destination.
+                </div>
+              ) : (
+                trip.restaurants.map((rest, idx) => (
+                  <div key={idx} className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <span className="text-xs text-pink-500 font-semibold">{rest.cuisine || 'Local Cuisine'}</span>
+                        <h4 className="text-base font-bold text-on-surface dark:text-white mt-0.5">{rest.name}</h4>
+                        {rest.foodType && <p className="text-xs text-secondary dark:text-gray-400 mt-0.5">🥗 {rest.foodType}</p>}
+                      </div>
+                      {rest.rating && (
+                        <span className="text-sm font-bold text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-lg shrink-0">
+                          {typeof rest.rating === 'number' ? `${rest.rating}★` : rest.rating}
+                        </span>
+                      )}
+                    </div>
+
+                    {rest.mustTryDish && (
+                      <div className="rounded-lg bg-orange-500/10 p-2.5 text-xs text-orange-600 dark:text-orange-300">
+                        🍲 <strong>Must Try:</strong> {rest.mustTryDish}
+                      </div>
+                    )}
+
+                    <div className="pt-2 border-t border-outline-variant/20 dark:border-white/5 flex items-center justify-between">
+                      <span className="text-xs text-secondary dark:text-gray-400">Avg for Two:</span>
+                      <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                        {typeof rest.averageCostForTwo === 'number' ? `₹${rest.averageCostForTwo.toLocaleString('en-IN')}` : rest.averageCostForTwo}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── Budget Breakdown Tab ────────────────────── */}
+          {activeTab === 'budget' && (
+            <div className="space-y-4">
+              {trip.budget || trip.budgetBreakdown ? (
+                <div className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-6 shadow-sm space-y-4">
+                  <h3 className="text-base font-bold text-on-surface dark:text-white flex items-center justify-between">
+                    <span>Complete Expense Breakdown</span>
+                    <span className="text-xl text-green-600 dark:text-green-400 font-extrabold">
+                      {typeof trip.budget?.estimatedTotal === 'number'
+                        ? `₹${trip.budget.estimatedTotal.toLocaleString('en-IN')}`
+                        : (trip.budgetBreakdown?.estimatedTotalCost || trip.estimatedCost)}
+                    </span>
+                  </h3>
+
+                  {trip.budget?.budgetSavingTip && (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3.5 text-xs text-amber-700 dark:text-amber-300">
+                      💡 <strong>Budget Saving Tip:</strong> {trip.budget.budgetSavingTip}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {(trip.budget?.transport || trip.budgetBreakdown?.transitCost) && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">✈️ Transport / Flights</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          {typeof trip.budget?.transport === 'number' ? `₹${trip.budget.transport.toLocaleString('en-IN')}` : trip.budgetBreakdown?.transitCost}
+                        </p>
+                      </div>
+                    )}
+                    {(trip.budget?.hotel || trip.budgetBreakdown?.accommodationCost) && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">🏨 Stay / Hotels</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          {typeof trip.budget?.hotel === 'number' ? `₹${trip.budget.hotel.toLocaleString('en-IN')}` : trip.budgetBreakdown?.accommodationCost}
+                        </p>
+                      </div>
+                    )}
+                    {(trip.budget?.food || trip.budgetBreakdown?.foodAndDiningCost) && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">🍽️ Food & Dining</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          {typeof trip.budget?.food === 'number' ? `₹${trip.budget.food.toLocaleString('en-IN')}` : trip.budgetBreakdown?.foodAndDiningCost}
+                        </p>
+                      </div>
+                    )}
+                    {(trip.budget?.localTransport || trip.budgetBreakdown?.localCommuteCost) && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">🚕 Local Commute & Cabs</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          {typeof trip.budget?.localTransport === 'number' ? `₹${trip.budget.localTransport.toLocaleString('en-IN')}` : trip.budgetBreakdown?.localCommuteCost}
+                        </p>
+                      </div>
+                    )}
+                    {(trip.budget?.attractions || trip.budgetBreakdown?.activitiesCost) && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">🎟️ Entry Fees & Sightseeing</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          {typeof trip.budget?.attractions === 'number' ? `₹${trip.budget.attractions.toLocaleString('en-IN')}` : trip.budgetBreakdown?.activitiesCost}
+                        </p>
+                      </div>
+                    )}
+                    {trip.budget?.shopping && (
+                      <div className="rounded-xl bg-surface-container dark:bg-white/5 p-4">
+                        <p className="text-xs text-secondary dark:text-gray-400">🛍️ Shopping & Souvenirs</p>
+                        <p className="text-lg font-bold text-on-surface dark:text-white mt-1">
+                          ₹{trip.budget.shopping.toLocaleString('en-IN')}
+                        </p>
+                      </div>
                     )}
                   </div>
-                  <span className={`text-sm flex-1 ${checkedItems[item.id] ? 'line-through text-secondary dark:text-gray-500' : 'text-on-surface dark:text-white'}`}>
-                    {item.item}
-                  </span>
-                  <span className="text-xs px-2 py-0.5 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-500">
-                    {item.category}
-                  </span>
-                </button>
-              ))}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-6 text-center text-secondary dark:text-gray-400">
+                  <p className="text-2xl mb-2">💰</p>
+                  <p className="text-sm font-semibold">Estimated Total Cost: {trip.estimatedCost || '₹25,000'}</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Packing & Essential Tips Tab ─────────────── */}
+          {activeTab === 'packing' && (
+            <div className="space-y-6">
+              {/* Emergency Information */}
+              {trip.emergencyInformation && (
+                <div className="rounded-2xl border border-red-500/20 bg-red-500/5 p-5">
+                  <h4 className="text-sm font-bold text-red-600 dark:text-red-400 mb-3 flex items-center gap-2">
+                    🚨 Emergency Contacts & Information
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div><span className="text-secondary">Police:</span> <strong className="text-on-surface dark:text-white">{trip.emergencyInformation.police || '112'}</strong></div>
+                    <div><span className="text-secondary">Ambulance:</span> <strong className="text-on-surface dark:text-white">{trip.emergencyInformation.ambulance || '108'}</strong></div>
+                    <div><span className="text-secondary">Tourist Helpline:</span> <strong className="text-on-surface dark:text-white">{trip.emergencyInformation.touristHelpline || '1363'}</strong></div>
+                    <div><span className="text-secondary">Nearest Hospital:</span> <strong className="text-on-surface dark:text-white">{trip.emergencyInformation.nearestHospital || 'City Hospital'}</strong></div>
+                  </div>
+                </div>
+              )}
+
+              {/* Essential Travel Tips */}
+              {trip.essentialTips?.length > 0 && (
+                <div className="rounded-2xl border border-outline-variant/30 dark:border-white/10 bg-surface-container-lowest dark:bg-[#141414] p-5 shadow-sm">
+                  <h4 className="text-sm font-bold text-on-surface dark:text-white mb-3 flex items-center gap-2">
+                    📌 Essential Destination Tips
+                  </h4>
+                  <ul className="space-y-2 text-xs text-secondary dark:text-gray-300">
+                    {trip.essentialTips.map((tip, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-primary-container font-bold">•</span>
+                        <span>{typeof tip === 'string' ? tip : JSON.stringify(tip)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Packing Checklist */}
+              <div>
+                <h4 className="text-sm font-bold text-on-surface dark:text-white mb-3">🎒 Packing Checklist</h4>
+                <div className="space-y-2">
+                  {(trip.packingChecklist?.length > 0
+                    ? trip.packingChecklist.map((item, idx) => ({ id: idx + 1, item: typeof item === 'string' ? item : item.item || item.name, category: 'Recommended' }))
+                    : [
+                        { id: 1, item: 'Comfortable walking shoes', category: 'Clothing' },
+                        { id: 2, item: 'Light cotton clothes', category: 'Clothing' },
+                        { id: 3, item: 'Sun hat & sunglasses', category: 'Accessories' },
+                        { id: 4, item: 'Sunscreen SPF 50+', category: 'Toiletries' },
+                        { id: 5, item: 'Power bank & chargers', category: 'Electronics' },
+                      ]
+                  ).map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => toggleCheck(item.id)}
+                      className={`w-full flex items-center gap-3 rounded-xl border p-4 text-left transition-all duration-200 ${checkedItems[item.id]
+                          ? 'border-primary-container/30 bg-primary-container/5'
+                          : 'border-outline-variant/30 dark:border-white/5 bg-surface-container-lowest dark:bg-white/[0.02] hover:border-primary-container/20'
+                        }`}
+                    >
+                      <div className={`flex h-5 w-5 items-center justify-center rounded border-2 transition-all ${checkedItems[item.id]
+                          ? 'bg-primary-container border-primary-container'
+                          : 'border-outline-variant/60 dark:border-white/20'
+                        }`}>
+                        {checkedItems[item.id] && (
+                          <svg className="h-3 w-3 text-on-primary-container" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </div>
+                      <span className={`text-sm flex-1 ${checkedItems[item.id] ? 'line-through text-secondary dark:text-gray-500' : 'text-on-surface dark:text-white'}`}>
+                        {item.item}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-lg bg-surface-container dark:bg-white/5 text-secondary dark:text-gray-500">
+                        {item.category}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
         </div>
