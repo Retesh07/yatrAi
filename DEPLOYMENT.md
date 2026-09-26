@@ -75,6 +75,8 @@ CLIENT_URL=https://your-frontend-domain.vercel.app
 
 # Groq AI Key
 GROQ_API_KEY=gsk_your_groq_api_key_here
+# Optional: defaults to openai/gpt-oss-20b
+GROQ_MODEL=openai/gpt-oss-20b
 
 # Redis Configuration (Optional for BullMQ queue; falls back gracefully if absent)
 REDIS_URL=rediss://default:your_upstash_password@your-redis-instance.upstash.io:6379

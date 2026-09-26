@@ -1,5 +1,7 @@
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const MODEL = 'llama-3.3-70b-versatile';
+// Llama 3.3 70B is no longer enabled for this Groq project. Keep the model
+// configurable so it can be changed from Render without a code deployment.
+const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
 
 function getDaysCount(startDate, endDate) {
   const diff = new Date(endDate) - new Date(startDate);
@@ -473,6 +475,9 @@ function getGroqFailureMessage(status) {
   }
   if (status === 400) {
     return 'Groq rejected this itinerary request. Check the Render logs for the provider error details.';
+  }
+  if (status === 404) {
+    return `The configured Groq model (${MODEL}) is unavailable for this API key. Set GROQ_MODEL to a model enabled in the Groq Console.`;
   }
   if (status >= 500) {
     return 'Groq is temporarily unavailable. Please try AI generation again shortly.';
