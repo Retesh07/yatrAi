@@ -480,6 +480,22 @@ function getGroqFailureMessage(status) {
   return 'AI generation is temporarily unavailable. Check the Render logs and try again.';
 }
 
+function getConnectionFailureMessage(error) {
+  // Node's fetch puts connection details (for example ENOTFOUND or ETIMEDOUT)
+  // on `cause`. Only surface the short code, never the raw provider response.
+  const code = String(error?.cause?.code || '').trim();
+  const safeCodes = new Set([
+    'ENOTFOUND', 'EAI_AGAIN', 'ECONNREFUSED', 'ECONNRESET',
+    'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_SOCKET',
+  ]);
+
+  if (safeCodes.has(code)) {
+    return `The backend could not reach Groq (${code}). This is a server network/DNS connection problem, not an API-credit error.`;
+  }
+
+  return 'The backend could not reach Groq. Check the Render logs and try again.';
+}
+
 function normalizeItineraryResponse(parsed, fallback) {
   if (!parsed || typeof parsed !== 'object') return fallback;
 
@@ -637,7 +653,7 @@ async function generateItinerary(trip) {
     const isTimeout = err.name === 'AbortError';
     return fallbackWithReason(
       fallback,
-      isTimeout ? 'Groq took too long to respond. Please try AI generation again.' : 'The backend could not reach Groq. Check the Render logs and try again.',
+      isTimeout ? 'Groq took too long to respond. Please try AI generation again.' : getConnectionFailureMessage(err),
       isTimeout ? 'request_timeout' : 'provider_connection_error'
     );
   }
