@@ -451,6 +451,35 @@ function generateFallbackTrip(trip) {
   };
 }
 
+// Keep the UI helpful without sending Groq's raw response (or any sensitive
+// provider details) to a browser.
+function fallbackWithReason(fallback, message, code) {
+  return {
+    ...fallback,
+    generation: {
+      source: 'starter',
+      code,
+      message,
+    },
+  };
+}
+
+function getGroqFailureMessage(status) {
+  if (status === 401 || status === 403) {
+    return 'Groq rejected the API credentials. Verify GROQ_API_KEY in Render, then save and redeploy the backend.';
+  }
+  if (status === 429) {
+    return 'Groq has rate-limited this app or its quota is exhausted. Wait for the Groq limit to reset, or use an account/plan with more capacity.';
+  }
+  if (status === 400) {
+    return 'Groq rejected this itinerary request. Check the Render logs for the provider error details.';
+  }
+  if (status >= 500) {
+    return 'Groq is temporarily unavailable. Please try AI generation again shortly.';
+  }
+  return 'AI generation is temporarily unavailable. Check the Render logs and try again.';
+}
+
 function normalizeItineraryResponse(parsed, fallback) {
   if (!parsed || typeof parsed !== 'object') return fallback;
 
@@ -539,6 +568,15 @@ async function generateItinerary(trip) {
   const prompt = buildPrompt(trip);
   const fallback = generateFallbackTrip(trip);
 
+  if (!process.env.GROQ_API_KEY) {
+    console.warn('GROQ_API_KEY is not configured. Using fallback generator.');
+    return fallbackWithReason(
+      fallback,
+      'The backend has no GROQ_API_KEY configured. Add it in Render Environment, then save and redeploy.',
+      'missing_api_key'
+    );
+  }
+
   try {
     console.log(`Calling Groq for trip ${trip._id} to ${trip.destination}`);
     const controller = new AbortController();
@@ -571,7 +609,7 @@ async function generateItinerary(trip) {
     if (!response.ok) {
       const errText = await response.text();
       console.warn(`Groq API returned error (${response.status}): ${errText}. Using fallback generator.`);
-      return fallback;
+      return fallbackWithReason(fallback, getGroqFailureMessage(response.status), `groq_http_${response.status}`);
     }
 
     const data = await response.json();
@@ -579,7 +617,7 @@ async function generateItinerary(trip) {
 
     if (!rawContent) {
       console.warn('Groq returned empty response. Using fallback generator.');
-      return fallback;
+      return fallbackWithReason(fallback, 'Groq returned an empty itinerary. Please try AI generation again.', 'empty_response');
     }
 
     let parsed;
@@ -587,7 +625,7 @@ async function generateItinerary(trip) {
       parsed = JSON.parse(rawContent);
     } catch (e) {
       console.warn('Groq response JSON parse failed. Using fallback generator.');
-      return fallback;
+      return fallbackWithReason(fallback, 'Groq returned an invalid itinerary response. Please try AI generation again.', 'invalid_response');
     }
 
     return {
@@ -596,7 +634,12 @@ async function generateItinerary(trip) {
     };
   } catch (err) {
     console.warn(`Groq API exception (${err.message}). Using fallback generator.`);
-    return fallback;
+    const isTimeout = err.name === 'AbortError';
+    return fallbackWithReason(
+      fallback,
+      isTimeout ? 'Groq took too long to respond. Please try AI generation again.' : 'The backend could not reach Groq. Check the Render logs and try again.',
+      isTimeout ? 'request_timeout' : 'provider_connection_error'
+    );
   }
 }
 
