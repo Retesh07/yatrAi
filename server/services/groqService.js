@@ -358,17 +358,9 @@ function generateFallbackTrip(trip) {
   const dest = trip.destination || 'Goa';
   const fromCity = trip.fromLocation || 'Delhi';
 
-  const hotels = [
-    { name: `Grand Hyatt & Spa ${dest}`, category: 'Luxury', pricePerNight: 5500, rating: 4.7, area: 'Beachfront / City Center', amenities: ['Pool', 'Spa', 'WiFi'], pros: ['Luxury view', 'Top amenities'], whyRecommended: 'Prime luxury location.' },
-    { name: `Zostel & Boutique Stay ${dest}`, category: 'Budget', pricePerNight: 1800, rating: 4.5, area: 'Old Town Heritage', amenities: ['WiFi', 'Cafe'], pros: ['Budget friendly', 'Social vibe'], whyRecommended: 'Ideal for travelers looking for great value.' },
-    { name: `The Lemon Tree Hotel ${dest}`, category: 'Mid-Range', pricePerNight: 3500, rating: 4.4, area: 'Central Market', amenities: ['Gym', 'Breakfast', 'WiFi'], pros: ['Central location', 'Clean rooms'], whyRecommended: 'Comfortable mid-range choice.' },
-  ];
-
-  const restaurants = [
-    { name: `The Spice Trail ${dest}`, cuisine: 'North / South Indian', foodType: trip.food || 'Veg & Non-Veg', rating: 4.6, averageCostForTwo: 1200, mustTryDish: 'Chef Special Thali' },
-    { name: `Coastal Flavors`, cuisine: 'Seafood / Regional', foodType: 'Regional Special', rating: 4.5, averageCostForTwo: 1500, mustTryDish: 'Signature Curry & Rice' },
-    { name: `Heritage Garden Cafe`, cuisine: 'Cafe & Continental', foodType: 'Multi-cuisine', rating: 4.4, averageCostForTwo: 800, mustTryDish: 'Artisanal Coffee & Breakfast' },
-  ];
+  // Never present invented businesses, ratings, or prices as recommendations.
+  const hotels = [];
+  const restaurants = [];
 
   const transport = {
     recommendedMode: (trip.transport && trip.transport[0]) || 'Flight',
@@ -376,21 +368,21 @@ function generateFallbackTrip(trip) {
     options: [
       {
         mode: 'Flight',
-        provider: 'IndiGo / Air India Direct',
-        duration: '2h 30m',
-        approxCost: 5500,
-        boardingPoint: `${fromCity} Airport T3`,
+        provider: 'Check live airline schedules',
+        duration: 'Confirm before booking',
+        approxCost: 'Check live prices',
+        boardingPoint: `${fromCity} airport`,
         arrivalPoint: `${dest} Airport`,
-        tips: 'Book non-stop flights 2-3 weeks in advance for lower fares.'
+        tips: 'Verify schedule, fare, and terminal before booking.'
       },
       {
         mode: 'Train',
-        provider: 'Vande Bharat / Express Train',
-        duration: '8h 15m',
-        approxCost: 1800,
-        boardingPoint: `${fromCity} Central Station`,
+        provider: 'Check live rail schedules',
+        duration: 'Confirm before booking',
+        approxCost: 'Check live prices',
+        boardingPoint: `${fromCity} main station`,
         arrivalPoint: `${dest} Junction`,
-        tips: 'Reserve AC 2-Tier or 3-Tier tickets early.'
+        tips: 'Verify route, availability, and fare before booking.'
       }
     ]
   };
@@ -427,6 +419,10 @@ function generateFallbackTrip(trip) {
   }
 
   return {
+    generation: {
+      source: 'starter',
+      message: 'AI generation is temporarily unavailable. This is a basic starter plan, not AI research. Verify venues, prices, routes, and availability before booking.',
+    },
     tripSummary: {
       fromLocation: fromCity,
       destination: dest,
@@ -444,16 +440,14 @@ function generateFallbackTrip(trip) {
     recommendedHotels: hotels.map(h => ({ name: h.name, pricePerNight: `₹${h.pricePerNight} / night`, rating: `${h.rating}★`, area: h.area })),
     restaurants,
     transitOptions: { preferredMode: transport.recommendedMode, summary: transport.recommendedRoute, options: transport.options },
-    budgetBreakdown: { currency: '₹', transitCost: `₹${budget.transport}`, accommodationCost: `₹${budget.hotel}`, foodAndDiningCost: `₹${budget.food}`, localCommuteCost: `₹${budget.localTransport}`, activitiesCost: `₹${budget.attractions}`, estimatedTotalCost: `₹${budget.estimatedTotal}` },
-    estimatedCost: `₹${budget.estimatedTotal.toLocaleString('en-IN')}`,
-    mustVisitPlaces: [
-      { name: `Top Landmark in ${dest}`, description: `Famous historical and cultural attraction.`, entryFee: 250, recommendedDuration: '2 Hours', bestTime: 'Morning' }
-    ],
+    budgetBreakdown: { currency: 'INR', estimatedTotalCost: 'Verify live prices' },
+    estimatedCost: 'Verify live prices',
+    mustVisitPlaces: [],
     packingChecklist: ['Comfortable walking shoes', 'Sunscreen & sunglasses', 'Power bank', 'Light clothing'],
-    shoppingRecommendations: [`Handicraft bazaars in ${dest}`, `Local spice market`],
-    essentialTips: ['Keep UPI and small cash bills ready.', 'Carry a reusable water bottle.'],
-    emergencyInformation: { police: '112', ambulance: '108', touristHelpline: '1363', nearestHospital: `City Hospital ${dest}` },
-    tripStatistics: { totalPlacesCovered: numDays * 4, totalRestaurantsSuggested: 5, estimatedTravelDistance: '350 km', averageDailyExpense: 5000, walkingLevel: 'Moderate', familyFriendly: true },
+    shoppingRecommendations: [],
+    essentialTips: ['Verify local emergency contacts and addresses from an official source.', 'Keep UPI, identification, and a reusable water bottle handy.'],
+    emergencyInformation: { police: '112', ambulance: '108', touristHelpline: '1363' },
+    tripStatistics: { totalPlacesCovered: 0, totalRestaurantsSuggested: 0, walkingLevel: 'Confirm locally' },
   };
 }
 
@@ -596,7 +590,10 @@ async function generateItinerary(trip) {
       return fallback;
     }
 
-    return normalizeItineraryResponse(parsed, fallback);
+    return {
+      ...normalizeItineraryResponse(parsed, fallback),
+      generation: { source: 'ai', message: '' },
+    };
   } catch (err) {
     console.warn(`Groq API exception (${err.message}). Using fallback generator.`);
     return fallback;

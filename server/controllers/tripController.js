@@ -10,7 +10,7 @@ const SAFE_AI_FIELDS = [
   'transitOptions', 'budgetBreakdown', 'estimatedCost',
   'tripSummary', 'mustVisitPlaces', 'packingChecklist',
   'shoppingRecommendations', 'essentialTips',
-  'emergencyInformation', 'tripStatistics',
+  'emergencyInformation', 'tripStatistics', 'generation',
 ];
 
 function pickSafeFields(data) {
@@ -187,7 +187,7 @@ exports.generateTripItinerary = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    if (trip.status === 'completed' && Array.isArray(trip.days) && trip.days.length > 0) {
+    if (trip.status === 'completed' && trip.generation?.source !== 'starter' && Array.isArray(trip.days) && trip.days.length > 0) {
       return res.status(200).json({ success: true, trip });
     }
 

@@ -194,6 +194,21 @@ export default function TripGenerator() {
     setTimeout(() => navigate('/dashboard'), 1200);
   };
 
+  const handleRegenerateWithAi = async () => {
+    if (!trip?._id || !token) return;
+    try {
+      setIsGenerating(true);
+      setError('');
+      const result = await apiGenerateTrip(trip._id, token);
+      if (!result.success || !result.trip) throw new Error(result.message || 'AI regeneration failed');
+      setTrip(result.trip);
+    } catch (err) {
+      setError(err.message || 'AI regeneration failed. Please try again later.');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-surface dark:bg-[#0F0F0F]">
@@ -431,6 +446,19 @@ export default function TripGenerator() {
                   </div>
                 )}
               </div>
+
+              {trip.generation?.source === 'starter' && (
+                <div className="mb-6 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-900 dark:text-amber-200">
+                  <p className="font-bold">Starter itinerary</p>
+                  <p className="mt-1 text-xs leading-5">{trip.generation.message}</p>
+                  <button
+                    onClick={handleRegenerateWithAi}
+                    className="mt-3 rounded-lg bg-amber-500 px-3 py-2 text-xs font-bold text-black hover:brightness-110"
+                  >
+                    Try AI generation again
+                  </button>
+                </div>
+              )}
 
               {activeTab === 'hotels' ? (
                 /* Hotels View */

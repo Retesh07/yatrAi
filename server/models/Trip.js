@@ -69,6 +69,10 @@ const tripSchema = new mongoose.Schema({
   essentialTips: [{ type: mongoose.Schema.Types.Mixed }],
   emergencyInformation: { type: mongoose.Schema.Types.Mixed },
   tripStatistics: { type: mongoose.Schema.Types.Mixed },
+  generation: {
+    source: { type: String, enum: ['ai', 'starter'], default: 'ai' },
+    message: { type: String, default: '' },
+  },
   status: {
     type: String,
     enum: ['draft', 'generating', 'completed', 'failed'],
