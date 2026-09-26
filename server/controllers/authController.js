@@ -24,6 +24,22 @@ const generateOtp = () => {
   return String(crypto.randomInt(100000, 1000000)).padStart(6, '0');
 };
 
+// The Vercel frontend and Render API are different sites. In production the
+// browser must be explicitly allowed to send this httpOnly cookie cross-site
+// when restoring a session after a page refresh.
+const refreshCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
+const refreshCookieClearOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+};
+
 // @route   POST /api/v1/auth/register
 const register = async (req, res) => {
   try {
@@ -92,12 +108,7 @@ const login = async (req, res) => {
     // Save refresh token directly — avoids triggering pre save
     await User.findByIdAndUpdate(user._id, { refreshToken });
 
-    res.cookie('refreshToken', refreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
-    });
+    res.cookie('refreshToken', refreshToken, refreshCookieOptions);
 
     res.status(200).json({
       success: true,
@@ -122,7 +133,7 @@ const login = async (req, res) => {
 const logout = async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user.id, { refreshToken: null });
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', refreshCookieClearOptions);
     res.status(200).json({ 
       success: true,
       message: 'Logged out successfully' 
@@ -166,12 +177,7 @@ const refreshToken = async (req, res) => {
     await User.findByIdAndUpdate(user._id, { refreshToken: newRefreshToken });
 
     // Set updated httpOnly cookie
-    res.cookie('refreshToken', newRefreshToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    res.cookie('refreshToken', newRefreshToken, refreshCookieOptions);
 
     res.status(200).json({
       success: true,
@@ -335,7 +341,7 @@ const deleteAccount = async (req, res) => {
   try {
     await Trip.deleteMany({ user: req.user.id });
     await User.findByIdAndDelete(req.user.id);
-    res.clearCookie('refreshToken');
+    res.clearCookie('refreshToken', refreshCookieClearOptions);
 
     res.status(200).json({
       success: true,
