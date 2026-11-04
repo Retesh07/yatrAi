@@ -5,7 +5,24 @@
   "main": "index.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "npx nodemon server.js"
+    "dev": "npx nodemon server.js",
+    "test": "jest --runInBand --detectOpenHandles --forceExit",
+    "test:coverage": "jest --coverage --runInBand --detectOpenHandles --forceExit",
+    "perf:all": "node ../performance/run-all.js",
+    "perf:smoke": "k6 run ../performance/scenarios/smoke.js",
+    "perf:api": "k6 run ../performance/scenarios/api-load.js",
+    "perf:auth": "k6 run ../performance/scenarios/auth-flow.js",
+    "perf:trips": "k6 run ../performance/scenarios/trips-crud.js",
+    "perf:metrics": "k6 run ../performance/scenarios/prioritized-metrics.js",
+    "perf:queue": "node ../performance/helpers/queueBenchmark.js",
+    "perf:stress": "k6 run ../performance/scenarios/stress.js",
+    "perf:spike": "k6 run ../performance/scenarios/spike.js",
+    "perf:soak": "k6 run ../performance/scenarios/soak.js",
+    "perf:10vu": "k6 run -e VUS=10 ../performance/scenarios/combined-load.js",
+    "perf:25vu": "k6 run -e VUS=25 ../performance/scenarios/combined-load.js",
+    "perf:50vu": "k6 run -e VUS=50 ../performance/scenarios/combined-load.js",
+    "perf:ramp": "k6 run -e SCENARIO=ramping ../performance/scenarios/combined-load.js",
+    "perf:cleanup": "node ../performance/helpers/dataCleanup.js"
   },
   "keywords": [],
   "author": "",
@@ -23,7 +40,14 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.7.0",
     "nodemailer": "^9.0.3",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "@apollo/server": "^4.11.3",
+    "graphql": "^16.10.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "mongodb-memory-server": "^10.1.2",
+    "supertest": "^7.0.0"
   }
 }
 

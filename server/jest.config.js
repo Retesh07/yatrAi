@@ -1,0 +1,21 @@
+module.exports = {
+  testEnvironment: 'node',
+  testMatch: ['**/tests/**/*.test.js'],
+  verbose: true,
+  forceExit: true,
+  clearMocks: true,
+  setupFiles: ['<rootDir>/tests/setup/env.js'],
+  collectCoverageFrom: [
+    'controllers/**/*.js',
+    'middleware/**/*.js',
+    'models/**/*.js',
+    'routes/**/*.js',
+    'services/**/*.js',
+    'graphql/**/*.js',
+    '!config/db.js',
+    '!services/emailService.js',
+  ],
+  coverageDirectory: 'coverage',
+  coverageReporters: ['text', 'lcov', 'clover', 'html'],
+  testTimeout: 30000,
+};

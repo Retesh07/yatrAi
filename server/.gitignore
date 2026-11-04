@@ -1,2 +1,13 @@
 node_modules/
 .env
+.env.*
+coverage/
+temp-summary.json
+test-groq.js
+list-models.js
+*.log
+*.cmd
+*.bat
+*.ps1
+*interview*.md
+*guide*.html

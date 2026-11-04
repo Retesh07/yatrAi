@@ -72,10 +72,28 @@ const initQueue = () => {
 
 const addPublicTripShareJob = async (tripId, ownerId) => {
   if (publicTripShareQueue) {
-    await publicTripShareQueue.add('public-trip-share', { tripId, ownerId });
+    try {
+      await publicTripShareQueue.add('public-trip-share', { tripId, ownerId });
+    } catch (error) {
+      console.warn('Queue submission failed, falling back to direct processing:', error.message);
+      await processPublicTripShareJob({ tripId, ownerId });
+    }
   } else {
     await processPublicTripShareJob({ tripId, ownerId });
   }
 };
 
-module.exports = { initQueue, addPublicTripShareJob, processPublicTripShareJob };
+const setPublicTripShareQueue = (queue) => {
+  publicTripShareQueue = queue;
+  hasQueue = Boolean(queue);
+};
+
+const getPublicTripShareQueue = () => publicTripShareQueue;
+
+module.exports = {
+  initQueue,
+  addPublicTripShareJob,
+  processPublicTripShareJob,
+  setPublicTripShareQueue,
+  getPublicTripShareQueue,
+};

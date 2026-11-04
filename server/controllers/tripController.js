@@ -1,5 +1,5 @@
 const Trip = require('../models/Trip');
-const { generateItinerary, streamItinerary, normalizeItineraryResponse } = require('../services/groqService');
+const { generateItinerary, streamItinerary, normalizeItineraryResponse, generateFallbackTrip } = require('../services/groqService');
 const { addPublicTripShareJob } = require('../services/queueService');
 const { notifyTripSaved, notifyTripGenerated } = require('../services/tripNotificationService');
 const { emitToUser } = require('../services/socketService');
@@ -138,6 +138,13 @@ exports.createTrip = async (req, res) => {
       isPublic,
     } = req.body;
 
+    if (!destination || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Destination, start date, and end date are required'
+      });
+    }
+
     const trip = await Trip.create({
       user: req.user.id,
       ownerName: req.user.name || '',
@@ -169,6 +176,9 @@ exports.createTrip = async (req, res) => {
 
     res.status(201).json({ success: true, trip });
   } catch (error) {
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -197,7 +207,9 @@ exports.generateTripItinerary = async (req, res) => {
     console.log(`Generating itinerary for trip ${trip._id} (${trip.destination})...`);
 
     try {
-      const generatedData = await generateItinerary(trip);
+      const generatedData = req.headers['x-perf-mock'] === 'true'
+        ? generateFallbackTrip(trip)
+        : await generateItinerary(trip);
       const safeUpdate = pickSafeFields(generatedData);
 
       const updatedTrip = await Trip.findByIdAndUpdate(

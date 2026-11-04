@@ -1,7 +1,27 @@
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-// Llama 3.3 70B is no longer enabled for this Groq project. Keep the model
-// configurable so it can be changed from Render without a code deployment.
-const MODEL = process.env.GROQ_MODEL || 'openai/gpt-oss-20b';
+const MODEL = process.env.GROQ_MODEL || 'qwen/qwen3.8-27b';
+
+// Retry a fetch call with exponential backoff when Groq returns 429.
+// maxRetries: number of *extra* attempts after the first failure.
+// Returns the Response object when successful, or throws after all retries.
+async function fetchWithRetry(url, options, maxRetries = 3) {
+  const BASE_DELAY_MS = 1000; // 1 s initial wait
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const response = await fetch(url, options);
+    if (response.status !== 429) return response; // success or non-429 error
+
+    if (attempt === maxRetries) return response; // return final 429 so caller handles it
+
+    // Honour Retry-After header when present, otherwise use exponential backoff.
+    const retryAfter = response.headers.get('Retry-After');
+    const waitMs = retryAfter
+      ? parseFloat(retryAfter) * 1000
+      : BASE_DELAY_MS * Math.pow(2, attempt) + Math.random() * 500;
+
+    console.warn(`Groq 429 – rate limited. Retrying in ${Math.round(waitMs)}ms (attempt ${attempt + 1}/${maxRetries})...`);
+    await new Promise(resolve => setTimeout(resolve, waitMs));
+  }
+}
 
 function getDaysCount(startDate, endDate) {
   const diff = new Date(endDate) - new Date(startDate);
@@ -603,7 +623,7 @@ async function generateItinerary(trip) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 65000);
 
-    const response = await fetch(GROQ_URL, {
+    const response = await fetchWithRetry(GROQ_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -629,8 +649,12 @@ async function generateItinerary(trip) {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.warn(`Groq API returned error (${response.status}): ${errText}. Using fallback generator.`);
-      return fallbackWithReason(fallback, getGroqFailureMessage(response.status), `groq_http_${response.status}`);
+      if (response.status === 429) {
+        console.warn(`Groq rate-limit (429) exhausted after retries. Using fallback generator.`);
+      } else {
+        console.warn(`Groq API returned error (${response.status}): ${errText}. Using fallback generator.`);
+      }
+      return fallback;
     }
 
     const data = await response.json();
@@ -691,6 +715,15 @@ async function* streamItinerary(trip, signal) {
   });
 
   if (!response.ok) {
+    if (response.status === 429) {
+      // Rate-limited on stream: fall back to the non-streaming path which handles
+      // retries and the fallback generator automatically.
+      console.warn('Groq stream rate-limited (429). Falling back to non-streaming generateItinerary.');
+      const result = await generateItinerary(trip);
+      // Yield the fallback as a single JSON chunk so the stream consumer still works.
+      yield JSON.stringify(result);
+      return;
+    }
     throw new Error(`Groq stream failed with status ${response.status}`);
   }
 
@@ -723,4 +756,4 @@ async function* streamItinerary(trip, signal) {
   }
 }
 
-module.exports = { generateItinerary, streamItinerary, normalizeItineraryResponse };
+module.exports = { generateItinerary, streamItinerary, normalizeItineraryResponse, generateFallbackTrip, buildPrompt };

@@ -7,12 +7,15 @@ const connectDB = require('./config/db');
 const { initSocket } = require('./services/socketService');
 const { initQueue } = require('./services/queueService');
 const { startTripReminderScheduler } = require('./services/tripNotificationService');
+const { initGraphQL } = require('./graphql');
 
 // Load env variables
 dotenv.config();
 
-// Connect to MongoDB
-connectDB();
+// Connect to MongoDB when not running tests
+if (process.env.NODE_ENV !== 'test') {
+  connectDB();
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -60,13 +63,25 @@ app.get('/api/v1/protected', protect, (req, res) => {
   });
 });
 
-// Initialize real-time and queue services
-initSocket(server);
-initQueue();
-startTripReminderScheduler();
+// Initialize real-time, queue, and GraphQL services when not running tests
+if (process.env.NODE_ENV !== 'test') {
+  initGraphQL(app).then(() => {
+    console.log('Apollo GraphQL server mounted at /graphql 🚀');
+  }).catch((err) => {
+    console.error('Apollo Server initialization failed:', err.message);
+  });
 
-const PORT = process.env.PORT || 5000;
+  initSocket(server);
+  initQueue();
+  startTripReminderScheduler();
 
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+  const PORT = process.env.PORT || 5000;
+
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
+module.exports.app = app;
+module.exports.server = server;
