@@ -1,17 +1,70 @@
 # Dependencies
 node_modules/
+package-lock.json.bak
 
-# Environment variables
+# Environment & Credentials (NEVER commit secrets!)
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+server/.env
+server/.env.*
 
-# Build output
+# Testing & Coverage
+coverage/
+.nyc_output/
+performance/temp-summary.json
+server/temp-summary.json
+temp-summary.json
+
+# Temporary development & scratch scripts
+server/test-groq.js
+server/list-models.js
+debug.log
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Terminal, Shell & Batch Scripts
+powershell.cmd
+*.cmd
+*.bat
+*.ps1
+
+# Interview Notes, Guides & Scratch Docs (Keep only README.md)
+*interview*.md
+*Interview*.md
+*INTERVIEW*.md
+*guide*.md
+*Guide*.md
+*notes*.md
+*Notes*.md
+*TODO*.md
+
+# HTML Reports & Guides (Keep only React client/index.html)
+*.html
+!client/index.html
+*guide*.html
+*Guide*.html
+
+# Scratch scripts
+scripts/list-files.js
+scripts/found-files.json
+
+# Accidental shell artifact files
+console.log*
+2)
+{
+
+# Build outputs
 dist/
 build/
+.next/
+out/
 
-# OS / IDE files
+# OS and Editor files
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+*.swp
+*.swo

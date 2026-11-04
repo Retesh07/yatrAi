@@ -1,0 +1,25 @@
+{
+  "name": "yatrai-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npm --prefix server start",
+    "dev": "npm --prefix server run dev",
+    "test": "npm --prefix server test",
+    "perf:all": "npm --prefix server run perf:all",
+    "perf:smoke": "npm --prefix server run perf:smoke",
+    "perf:api": "npm --prefix server run perf:api",
+    "perf:auth": "npm --prefix server run perf:auth",
+    "perf:trips": "npm --prefix server run perf:trips",
+    "perf:metrics": "npm --prefix server run perf:metrics",
+    "perf:queue": "npm --prefix server run perf:queue",
+    "perf:stress": "npm --prefix server run perf:stress",
+    "perf:spike": "npm --prefix server run perf:spike",
+    "perf:soak": "npm --prefix server run perf:soak",
+    "perf:10vu": "npm --prefix server run perf:10vu",
+    "perf:25vu": "npm --prefix server run perf:25vu",
+    "perf:50vu": "npm --prefix server run perf:50vu",
+    "perf:ramp": "npm --prefix server run perf:ramp",
+    "perf:cleanup": "npm --prefix server run perf:cleanup"
+  }
+}
