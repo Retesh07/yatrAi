@@ -5,3 +5,4 @@
  */
 const rawUrl = import.meta.env.VITE_API_URL || '';
 export const API_BASE_URL = rawUrl ? `${rawUrl.replace(/\/$/, '')}/api/v1` : '/api/v1';
+export const GRAPHQL_URL = rawUrl ? `${rawUrl.replace(/\/$/, '')}/graphql` : '/graphql';

@@ -1,4 +1,4 @@
-import { API_BASE_URL } from './config';
+import { API_BASE_URL, GRAPHQL_URL } from './config';
 
 /**
  * Generic API request helper.
@@ -40,8 +40,38 @@ export function apiGetMyTrips(token) {
   return apiRequest('/trips', { token });
 }
 
-/** Get publicly shared trips */
-export function apiGetPublicTrips(token) {
+/** Get publicly shared trips via Apollo GraphQL (ultra-lean card projection) with REST fallback */
+export async function apiGetPublicTrips(token) {
+  try {
+    const query = `
+      query GetPublicTrips {
+        publicTrips(limit: 50) {
+          id
+          fromLocation
+          destination
+          ownerName
+          budget
+          startDate
+          endDate
+        }
+      }
+    `;
+
+    const res = await fetch(GRAPHQL_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query }),
+    });
+
+    const json = await res.json();
+    if (json.data && Array.isArray(json.data.publicTrips)) {
+      return { success: true, trips: json.data.publicTrips };
+    }
+  } catch (err) {
+    console.warn('GraphQL public trips query failed, using REST fallback:', err);
+  }
+
+  // Graceful fallback to standard REST endpoint
   return apiRequest('/trips/public', { token });
 }
 

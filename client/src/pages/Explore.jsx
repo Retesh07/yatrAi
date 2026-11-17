@@ -53,9 +53,14 @@ const buildSampleHotels = (trip) => [
 ];
 
 const getTripDaysCount = (trip) => {
-  if (Array.isArray(trip.days)) return trip.days.length;
-  if (typeof trip.days === 'number') return trip.days;
-  return Number(trip.days) || 0;
+  if (Array.isArray(trip.days) && trip.days.length > 0) return trip.days.length;
+  if (typeof trip.days === 'number' && trip.days > 0) return trip.days;
+  if (trip.startDate && trip.endDate) {
+    const diff = new Date(trip.endDate) - new Date(trip.startDate);
+    const calculated = Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1;
+    if (calculated > 0) return calculated;
+  }
+  return 3;
 };
 
 const getTripStyle = (trip) => {
@@ -167,7 +172,7 @@ export default function Explore() {
 
   const publicFilteredTrips = publicTrips.filter((trip) => {
     if (filters.destination !== 'All' && !trip.destination.toLowerCase().includes(filters.destination.toLowerCase())) return false;
-    if (!matchesDuration(trip.days?.length || 0, filters.duration)) return false;
+    if (!matchesDuration(getTripDaysCount(trip), filters.duration)) return false;
     if (!matchesBudget(trip.budget || '', filters.budget)) return false;
     if (filters.style !== 'All' && trip.travelStyle?.[0] !== filters.style) return false;
     return true;
@@ -310,7 +315,9 @@ export default function Explore() {
               </div>
 
               <div className="p-5">
-                <h3 className="font-semibold text-on-surface dark:text-white">{trip.destination}</h3>
+                <h3 className="font-semibold text-on-surface dark:text-white">
+                  {trip.fromLocation ? `${trip.fromLocation} ➔ ` : ''}{trip.destination}
+                </h3>
 
                 <div className="mt-2 flex items-center gap-2">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary-container/20 text-xs font-bold text-primary dark:text-primary-container">

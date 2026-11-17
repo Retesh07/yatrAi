@@ -13,6 +13,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      // Forward /graphql requests to Apollo Server on backend
+      '/graphql': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
     },
   },
 });
