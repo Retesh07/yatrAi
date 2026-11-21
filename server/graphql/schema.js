@@ -62,11 +62,26 @@ const typeDefs = `#graphql
     updatedAt: String
   }
 
+  type DashboardStats {
+    totalTrips: Int!
+    completedTrips: Int!
+    draftTrips: Int!
+  }
+
+  type DashboardData {
+    user: User
+    unreadNotificationCount: Int!
+    trips: [Trip!]!
+    stats: DashboardStats!
+  }
+
   type Query {
     health: String!
     publicTrips(limit: Int): [Trip!]!
     trip(id: ID!): Trip
     myTrips: [Trip!]!
+    unreadNotificationCount: Int!
+    dashboard: DashboardData!
   }
 `;
 

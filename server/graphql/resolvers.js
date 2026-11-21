@@ -1,4 +1,5 @@
 const Trip = require('../models/Trip');
+const Notification = require('../models/Notification');
 
 const resolvers = {
   Query: {
@@ -33,6 +34,50 @@ const resolvers = {
         id: t._id.toString(),
         ...t.toObject(),
       }));
+    },
+
+    unreadNotificationCount: async (_, __, context) => {
+      if (!context.user) {
+        throw new Error('Not authorized to access unreadNotificationCount');
+      }
+      return await Notification.countDocuments({
+        user: context.user._id || context.user.id,
+        read: false,
+      });
+    },
+
+    dashboard: async (_, __, context) => {
+      if (!context.user) {
+        throw new Error('Not authorized to access dashboard');
+      }
+      const userId = context.user._id || context.user.id;
+      const [trips, unreadCount] = await Promise.all([
+        Trip.find({ user: userId }).sort({ createdAt: -1 }),
+        Notification.countDocuments({ user: userId, read: false }),
+      ]);
+
+      const totalTrips = trips.length;
+      const completedTrips = trips.filter((t) => t.status === 'completed').length;
+      const draftTrips = trips.filter((t) => t.status === 'draft').length;
+
+      return {
+        user: {
+          id: userId.toString(),
+          name: context.user.name,
+          email: context.user.email,
+        },
+        unreadNotificationCount: unreadCount,
+        trips: trips.map((t) => ({
+          id: t._id.toString(),
+          _id: t._id.toString(),
+          ...t.toObject(),
+        })),
+        stats: {
+          totalTrips,
+          completedTrips,
+          draftTrips,
+        },
+      };
     },
   },
 };

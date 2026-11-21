@@ -40,6 +40,68 @@ export function apiGetMyTrips(token) {
   return apiRequest('/trips', { token });
 }
 
+/** Get complete dashboard data via Apollo GraphQL in ONE single query (trips + stats + notification count) with REST fallback */
+export async function apiGetDashboardData(token) {
+  try {
+    const query = `
+      query GetDashboard {
+        dashboard {
+          user {
+            id
+            name
+            email
+          }
+          unreadNotificationCount
+          stats {
+            totalTrips
+            completedTrips
+            draftTrips
+          }
+          trips {
+            id
+            destination
+            startDate
+            endDate
+            budget
+            status
+            createdAt
+          }
+        }
+      }
+    `;
+
+    const res = await fetch(GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ query }),
+    });
+
+    const json = await res.json();
+    if (json.data && json.data.dashboard) {
+      return { success: true, ...json.data.dashboard };
+    }
+  } catch (err) {
+    console.warn('GraphQL dashboard query failed, using REST fallback:', err);
+  }
+
+  // Graceful fallback to REST endpoint if GraphQL is unavailable
+  const data = await apiRequest('/trips', { token });
+  const trips = data.trips || [];
+  return {
+    success: true,
+    trips,
+    unreadNotificationCount: 0,
+    stats: {
+      totalTrips: trips.length,
+      completedTrips: trips.filter((t) => t.status === 'completed').length,
+      draftTrips: trips.filter((t) => t.status === 'draft').length,
+    },
+  };
+}
+
 /** Get publicly shared trips via Apollo GraphQL (ultra-lean card projection) with REST fallback */
 export async function apiGetPublicTrips(token) {
   try {

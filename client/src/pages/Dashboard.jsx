@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
-import { apiGetMyTrips, apiDeleteTrip } from '../api/client';
+import { apiGetDashboardData, apiDeleteTrip } from '../api/client';
 
 const sidebarLinks = [
   { label: 'Dashboard', path: '/dashboard', active: true },
@@ -31,26 +31,37 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   const [trips, setTrips] = useState([]);
+  const [stats, setStats] = useState({ totalTrips: 0, completedTrips: 0, draftTrips: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    async function fetchTrips() {
+    async function fetchDashboard() {
       if (!token) return;
       try {
         setLoading(true);
-        const data = await apiGetMyTrips(token);
+        const data = await apiGetDashboardData(token);
         if (data.success) {
           setTrips(data.trips || []);
+          if (data.stats) {
+            setStats(data.stats);
+          }
+          if (typeof data.unreadNotificationCount === 'number') {
+            window.dispatchEvent(
+              new CustomEvent('notifications:updated', {
+                detail: { unreadCount: data.unreadNotificationCount },
+              })
+            );
+          }
         }
       } catch (err) {
-        console.error('Error loading trips:', err);
-        setError('Could not load trips');
+        console.error('Error loading dashboard data:', err);
+        setError('Could not load dashboard');
       } finally {
         setLoading(false);
       }
     }
-    fetchTrips();
+    fetchDashboard();
   }, [token]);
 
   const handleDeleteTrip = async (e, tripId) => {
@@ -59,7 +70,7 @@ export default function Dashboard() {
     if (!window.confirm('Are you sure you want to delete this trip?')) return;
     try {
       await apiDeleteTrip(tripId, token);
-      setTrips((prev) => prev.filter((t) => t._id !== tripId));
+      setTrips((prev) => prev.filter((t) => (t._id || t.id) !== tripId));
     } catch (err) {
       console.error('Failed to delete trip:', err);
     }
@@ -118,9 +129,9 @@ export default function Dashboard() {
           {/* Stats Row */}
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in animation-delay-200">
             {[
-              { label: 'Total Trips', value: trips.length.toString(), change: 'Your planned trips' },
-              { label: 'Completed', value: trips.filter(t => t.status === 'completed').length.toString(), change: 'AI generated' },
-              { label: 'Drafts', value: trips.filter(t => t.status === 'draft').length.toString(), change: 'In progress' },
+              { label: 'Total Trips', value: (stats?.totalTrips ?? trips.length).toString(), change: 'Your planned trips' },
+              { label: 'Completed', value: (stats?.completedTrips ?? trips.filter(t => t.status === 'completed').length).toString(), change: 'AI generated' },
+              { label: 'Drafts', value: (stats?.draftTrips ?? trips.filter(t => t.status === 'draft').length).toString(), change: 'In progress' },
             ].map((stat, i) => (
               <div
                 key={i}
@@ -172,10 +183,11 @@ export default function Dashboard() {
                   const numDays = getDaysCount(trip.startDate, trip.endDate);
                   const statusLabel = trip.status || 'draft';
 
+                  const tripId = trip._id || trip.id;
                   return (
                     <Link
-                      key={trip._id}
-                      to={`/trip/${trip._id}`}
+                      key={tripId}
+                      to={`/trip/${tripId}`}
                       className="group flex-col rounded-2xl border border-outline-variant/30 dark:border-white/[0.06] bg-surface-container-lowest dark:bg-[#141414] overflow-hidden hover:border-primary-container/40 hover:shadow-xl transition-all duration-300 hover:-translate-y-1 flex"
                     >
                       <div className={`h-24 bg-gradient-to-br ${gradient} flex items-start justify-between p-3 relative`}>
@@ -184,7 +196,7 @@ export default function Dashboard() {
                         </span>
                         <div className="flex items-center gap-1.5 self-start">
                           <button
-                            onClick={(e) => handleDeleteTrip(e, trip._id)}
+                            onClick={(e) => handleDeleteTrip(e, tripId)}
                             className="h-7 w-7 rounded-lg bg-black/30 hover:bg-red-600/80 text-white flex items-center justify-center backdrop-blur-sm transition-all"
                             title="Delete trip"
                           >

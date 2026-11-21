@@ -2,6 +2,7 @@ const request = require('supertest');
 const app = require('../server');
 const Trip = require('../models/Trip');
 const User = require('../models/User');
+const Notification = require('../models/Notification');
 const { initGraphQL } = require('../graphql');
 const { connect, closeDatabase, clearDatabase } = require('./setup/db');
 
@@ -166,6 +167,78 @@ describe('Apollo GraphQL Endpoint (/graphql)', () => {
     expect(authRes.status).toBe(200);
     expect(authRes.body.data.myTrips).toHaveLength(1);
     expect(authRes.body.data.myTrips[0].destination).toBe('My Personal Trip');
+  });
+
+  it('Query { dashboard } should return composite user profile, unread notification count, and trips in a single query', async () => {
+    // Seed 1 completed trip, 1 draft trip
+    await Trip.create({
+      user: user._id,
+      destination: 'Goa Beach Vacation',
+      startDate: '2026-11-25',
+      endDate: '2026-11-28',
+      budget: 'Luxury',
+      status: 'completed',
+    });
+    await Trip.create({
+      user: user._id,
+      destination: 'Manali Trek',
+      startDate: '2026-12-10',
+      endDate: '2026-12-15',
+      budget: 'Backpacker',
+      status: 'draft',
+    });
+
+    // Seed 2 notifications (1 unread, 1 read)
+    await Notification.create({
+      user: user._id,
+      title: 'Trip Shared',
+      message: 'Someone shared a trip with you',
+      read: false,
+    });
+    await Notification.create({
+      user: user._id,
+      title: 'Welcome',
+      message: 'Welcome to YatrAI',
+      read: true,
+    });
+
+    const res = await request(app)
+      .post('/graphql')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        query: `
+          query GetDashboard {
+            dashboard {
+              user {
+                name
+                email
+              }
+              unreadNotificationCount
+              stats {
+                totalTrips
+                completedTrips
+                draftTrips
+              }
+              trips {
+                id
+                destination
+                status
+                budget
+              }
+            }
+          }
+        `,
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.errors).toBeUndefined();
+    const data = res.body.data.dashboard;
+    expect(data.user.name).toBe('GraphQL Tester');
+    expect(data.unreadNotificationCount).toBe(1);
+    expect(data.stats.totalTrips).toBe(2);
+    expect(data.stats.completedTrips).toBe(1);
+    expect(data.stats.draftTrips).toBe(1);
+    expect(data.trips).toHaveLength(2);
   });
 });
 
