@@ -53,6 +53,10 @@ export async function apiGetPublicTrips(token) {
           budget
           startDate
           endDate
+          days {
+            day
+            title
+          }
         }
       }
     `;

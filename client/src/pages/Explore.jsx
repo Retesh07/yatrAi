@@ -81,6 +81,12 @@ const getTripOwnerName = (trip) => {
 };
 
 const getItineraryPreview = (trip) => {
+  if (Array.isArray(trip.days) && trip.days.length > 0) {
+    return trip.days.slice(0, 2).map((day) => ({
+      label: `Day ${day.day || 1}`,
+      text: day.title || day.theme || 'Day Highlights',
+    }));
+  }
   const daysCount = getTripDaysCount(trip) || 3;
   const itinerary = buildSampleItinerary({
     destination: trip.destination,
